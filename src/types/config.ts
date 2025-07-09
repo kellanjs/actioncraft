@@ -2,8 +2,8 @@ import type { StandardSchemaV1 } from "../standard-schema.js";
 import type { InferCraftedActionResult } from "./actions.js";
 import type {
   AllPossibleErrors,
-  BaseError,
   ErrorDefinition,
+  UserDefinedError,
 } from "./errors.js";
 import type { CallbackMetadata } from "./shared.js";
 
@@ -44,7 +44,7 @@ export type CrafterConfig = {
    * Custom handler for unexpected thrown errors.
    * Transforms exceptions into structured error objects.
    */
-  handleThrownError?: (error: unknown) => BaseError;
+  handleThrownError?: (error: unknown) => UserDefinedError;
 
   /**
    * Logger for ActionCraft internal events.

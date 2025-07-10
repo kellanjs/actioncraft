@@ -115,7 +115,7 @@ describe("Helper Functions", () => {
         success: false,
         error: {
           type: "INITIAL_STATE",
-          message: "No action has been executed yet",
+          message: "Action has not been executed yet",
         },
         values: undefined,
       });
@@ -144,7 +144,7 @@ describe("Helper Functions", () => {
       expect(state.success).toBe(false);
       if (!state.success) {
         expect(state.error.type).toBe("INITIAL_STATE");
-        expect(state.error.message).toBe("No action has been executed yet");
+        expect(state.error.message).toBe("Action has not been executed yet");
       }
       expect(typeof state).toBe("object");
       expect(state).toHaveProperty("success");

@@ -897,7 +897,7 @@ describe("useActionState Integration", () => {
           previousData: null,
           previousError: {
             type: "INITIAL_STATE",
-            message: "No action has been executed yet",
+            message: "Action has not been executed yet",
           },
         });
         expect(secondResult.data.previousError).toBe(null);

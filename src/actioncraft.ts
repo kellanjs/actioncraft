@@ -571,7 +571,7 @@ export function create<TConfig extends CrafterConfig = CrafterConfig>(
 export function initial<TAction>(action: TAction): InferResult<TAction> {
   const error = {
     type: EXTERNAL_ERROR_TYPES.INITIAL_STATE,
-    message: "No action has been executed yet",
+    message: "Action has not been executed yet",
   } as const;
 
   // Attempt to read the ActionCraft config attached during craft()

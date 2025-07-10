@@ -98,7 +98,7 @@ export type InternalLogicError = BaseError & {
  */
 export type InitialStateMarker = BaseError & {
   type: typeof EXTERNAL_ERROR_TYPES.INITIAL_STATE;
-  message: "No action has been executed yet";
+  message: "Action has not been executed yet";
 };
 
 /**

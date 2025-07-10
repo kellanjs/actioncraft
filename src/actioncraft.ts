@@ -40,6 +40,7 @@ import type { Result } from "./types/result.js";
 import { err, isOk, isResultOk, isResultErr, isErr } from "./types/result.js";
 import type {
   InferValidatedInput,
+  InferValidatedBindArgs,
   InferRawBindArgs,
   InferRawInput,
 } from "./types/schemas.js";
@@ -211,39 +212,49 @@ class Crafter<
       ? (error: unknown) => err(this._config.handleThrownError!(error))
       : null;
 
-    // Create callback metadata passed to all callbacks
-    const callbackMetadata: CallbackMetadata<
-      TConfig,
-      TSchemas,
-      TErrors,
-      TData
-    > = {
+    // Execute onStart callback before any processing
+    await this._executeOnStartCallback({
       rawInput,
       prevState,
-      validatedInput: undefined, // Set after validation
-      validatedBindArgs: undefined, // Set after validation
-    };
+      validatedInput: undefined,
+      validatedBindArgs: undefined,
+    });
+
+    // Track validation state for error handling
+    let validatedInput: InferValidatedInput<TSchemas> | undefined = undefined;
+    let validatedBindArgs: InferValidatedBindArgs<TSchemas> | undefined =
+      undefined;
 
     try {
       // Validate input and return on failure
       const inputValidation = await this._validateInput(rawInput);
       if (!isOk(inputValidation)) {
-        await this._executeCallbacks(inputValidation, callbackMetadata);
+        await this._executeResultCallbacks(inputValidation, {
+          rawInput,
+          prevState,
+          validatedInput,
+          validatedBindArgs,
+        });
         return this._toActionResult(inputValidation, rawInput);
       }
 
-      // Update metadata with validated input
-      callbackMetadata.validatedInput = inputValidation.value;
+      // Update validation state
+      validatedInput = inputValidation.value;
 
       // Validate bound arguments and return on failure
       const bindArgsValidation = await this._validateBindArgs(bindArgs);
       if (!isOk(bindArgsValidation)) {
-        await this._executeCallbacks(bindArgsValidation, callbackMetadata);
+        await this._executeResultCallbacks(bindArgsValidation, {
+          rawInput,
+          prevState,
+          validatedInput,
+          validatedBindArgs,
+        });
         return this._toActionResult(bindArgsValidation, rawInput);
       }
 
-      // Update metadata with validated bind args
-      callbackMetadata.validatedBindArgs = bindArgsValidation.value;
+      // Update validation state
+      validatedBindArgs = bindArgsValidation.value;
 
       // Execute the user's action implementation
       const actionImplResult = await actionImpl({
@@ -256,7 +267,12 @@ class Crafter<
       // Return on `undefined` (implicit return error)
       if (actionImplResult === undefined) {
         const implicitReturnError = createImplicitReturnErrorResult();
-        await this._executeCallbacks(implicitReturnError, callbackMetadata);
+        await this._executeResultCallbacks(implicitReturnError, {
+          rawInput,
+          prevState,
+          validatedInput,
+          validatedBindArgs,
+        });
         return this._toActionResult(implicitReturnError, rawInput);
       }
 
@@ -276,7 +292,12 @@ class Crafter<
       }
 
       // Execute callbacks and return final result
-      await this._executeCallbacks(finalResult, callbackMetadata);
+      await this._executeResultCallbacks(finalResult, {
+        rawInput,
+        prevState,
+        validatedInput,
+        validatedBindArgs,
+      });
 
       // Use validated input for the values field on a successful run
       const inputForValues = isOk(finalResult)
@@ -293,7 +314,12 @@ class Crafter<
       // Handle unexpected thrown errors
       try {
         const errorResult = this._handleThrownError(error, handleThrownErrorFn);
-        await this._executeCallbacks(errorResult, callbackMetadata);
+        await this._executeResultCallbacks(errorResult, {
+          rawInput,
+          prevState,
+          validatedInput,
+          validatedBindArgs,
+        });
         return this._toActionResult(errorResult, rawInput);
       } catch (handlerError) {
         // If we catch another error here, then we're done
@@ -472,9 +498,25 @@ class Crafter<
   // --------------------------------------------------------------------------
 
   /**
-   * Executes appropriate lifecycle callbacks based on the action result.
+   * Executes the onStart callback if defined.
    */
-  private async _executeCallbacks(
+  private async _executeOnStartCallback(
+    metadata: CallbackMetadata<TConfig, TSchemas, TErrors, TData>,
+  ): Promise<void> {
+    const callbacks = this._callbacks;
+    if (callbacks.onStart) {
+      await safeExecuteCallback(
+        () => callbacks.onStart!({ metadata }),
+        "onStart",
+        (level, msg, details) => log(this._config.logger, level, msg, details),
+      );
+    }
+  }
+
+  /**
+   * Executes result-based lifecycle callbacks (onSuccess, onError, onSettled).
+   */
+  private async _executeResultCallbacks(
     result: Result<TData, AllPossibleErrors<TErrors, TConfig, TSchemas>>,
     metadata: CallbackMetadata<TConfig, TSchemas, TErrors, TData>,
   ): Promise<void> {

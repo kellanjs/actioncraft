@@ -1,16 +1,154 @@
-import { create } from "../../src/actioncraft";
+import { create, initial } from "../../src/actioncraft";
 import { stringSchema, numberSchema } from "../fixtures/schemas";
 import { describe, it, vi, beforeEach, expect } from "../setup";
 
 describe("Callbacks", () => {
+  const onStartMock = vi.fn();
   const onSuccessMock = vi.fn();
   const onErrorMock = vi.fn();
   const onSettledMock = vi.fn();
 
   beforeEach(() => {
+    onStartMock.mockClear();
     onSuccessMock.mockClear();
     onErrorMock.mockClear();
     onSettledMock.mockClear();
+  });
+
+  describe("onStart", () => {
+    it("should be called at the beginning of action execution", async () => {
+      const action = create()
+        .schemas({ inputSchema: stringSchema })
+        .action(async ({ input }) => {
+          return (input as string).toUpperCase();
+        })
+        .callbacks({
+          onStart: onStartMock,
+        })
+        .craft();
+
+      await action("hello");
+
+      expect(onStartMock).toHaveBeenCalledTimes(1);
+      expect(onStartMock).toHaveBeenCalledWith({
+        metadata: expect.objectContaining({
+          rawInput: "hello",
+          validatedInput: undefined, // Not yet validated
+          validatedBindArgs: undefined, // Not yet validated
+        }),
+      });
+    });
+
+    it("should be called even when action fails", async () => {
+      const action = create()
+        .schemas({ inputSchema: stringSchema })
+        .action(async ({ input }) => {
+          return input;
+        })
+        .callbacks({
+          onStart: onStartMock,
+        })
+        .craft();
+
+      // @ts-expect-error - Testing invalid input
+      await action(123);
+
+      expect(onStartMock).toHaveBeenCalledTimes(1);
+      expect(onStartMock).toHaveBeenCalledWith({
+        metadata: expect.objectContaining({
+          rawInput: 123,
+          validatedInput: undefined,
+          validatedBindArgs: undefined,
+        }),
+      });
+    });
+
+    it("should handle async onStart callbacks", async () => {
+      let asyncCallbackExecuted = false;
+      const callbackOrder: string[] = [];
+
+      const action = create()
+        .schemas({ inputSchema: stringSchema })
+        .action(async ({ input }) => {
+          callbackOrder.push("action");
+          return input;
+        })
+        .callbacks({
+          onStart: async ({ metadata }) => {
+            callbackOrder.push("onStart");
+            // Simulate async operation
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            asyncCallbackExecuted = true;
+          },
+          onSuccess: async ({ data, metadata }) => {
+            callbackOrder.push("onSuccess");
+          },
+        })
+        .craft();
+
+      await action("async-test");
+
+      expect(asyncCallbackExecuted).toBe(true);
+      expect(callbackOrder).toEqual(["onStart", "action", "onSuccess"]);
+    });
+
+    it("should provide rawInput and prevState in metadata", async () => {
+      let capturedMetadata: unknown;
+
+      const action = create({ useActionState: true })
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema] as const,
+        })
+        .action(async ({ input, bindArgs }) => {
+          const [multiplier] = bindArgs;
+          return (input as string).repeat(multiplier as number);
+        })
+        .callbacks({
+          onStart: ({ metadata }) => {
+            capturedMetadata = metadata;
+          },
+        })
+        .craft();
+
+      const prevState = initial(action);
+      await action(2, prevState, "meta");
+
+      expect(capturedMetadata).toEqual(
+        expect.objectContaining({
+          rawInput: "meta",
+          prevState: prevState,
+          validatedInput: undefined,
+          validatedBindArgs: undefined,
+        }),
+      );
+    });
+
+    it("should work with no input schema", async () => {
+      let capturedMetadata: unknown;
+
+      const action = create()
+        .action(async () => {
+          return "no-input-schema";
+        })
+        .callbacks({
+          onStart: ({ metadata }) => {
+            capturedMetadata = metadata;
+          },
+        })
+        .craft();
+
+      await action();
+
+      expect(capturedMetadata).toEqual(
+        expect.objectContaining({
+          rawInput: undefined,
+          prevState: undefined,
+          validatedInput: undefined,
+          validatedBindArgs: undefined,
+        }),
+      );
+    });
   });
 
   describe("onSuccess", () => {
@@ -881,6 +1019,30 @@ describe("Callbacks", () => {
   });
 
   describe("Callback Error Handling", () => {
+    it("should not affect action result when onStart callback throws", async () => {
+      const mockLogger = { error: vi.fn(), warn: vi.fn() };
+
+      const action = create({ logger: mockLogger })
+        .schemas({ inputSchema: stringSchema })
+        .action(async ({ input }) => {
+          return input;
+        })
+        .callbacks({
+          onStart: () => {
+            throw new Error("Start callback error");
+          },
+        })
+        .craft();
+
+      const result = await action("test");
+
+      expect(result).toEqual({ success: true, data: "test" });
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining("Error in onStart callback"),
+        expect.any(Error),
+      );
+    });
+
     it("should not affect action result when onSuccess callback throws", async () => {
       const mockLogger = { error: vi.fn(), warn: vi.fn() };
 

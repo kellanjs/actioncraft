@@ -82,6 +82,11 @@ export type CrafterCallbacks<
   TErrors extends CrafterErrors,
   TData,
 > = {
+  /** Called when action starts executing, before any validation. */
+  onStart?: (params: {
+    metadata: CallbackMetadata<TConfig, TSchemas, TErrors, TData>;
+  }) => Promise<void> | void;
+
   /** Called when action fails. */
   onError?: (params: {
     error: AllPossibleErrors<TErrors, TConfig, TSchemas>;

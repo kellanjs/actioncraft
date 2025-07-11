@@ -1,6 +1,6 @@
 {
   "name": "@kellanjs/actioncraft",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Fluent, type-safe builder for Next.js server actions.",
   "keywords": [
     "next.js",

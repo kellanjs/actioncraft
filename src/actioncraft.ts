@@ -202,7 +202,7 @@ class Crafter<
 
     // Extract bindArgs, prevState, and input from the raw args
     const {
-      bindArgs,
+      bindArgs: rawBindArgs,
       prevState,
       input: rawInput,
     } = this._extractActionArgs(args);
@@ -215,6 +215,7 @@ class Crafter<
     // Execute onStart callback before any processing
     await this._executeOnStartCallback({
       rawInput,
+      rawBindArgs,
       prevState,
       validatedInput: undefined,
       validatedBindArgs: undefined,
@@ -231,6 +232,7 @@ class Crafter<
       if (!isOk(inputValidation)) {
         await this._executeResultCallbacks(inputValidation, {
           rawInput,
+          rawBindArgs,
           prevState,
           validatedInput,
           validatedBindArgs,
@@ -242,10 +244,11 @@ class Crafter<
       validatedInput = inputValidation.value;
 
       // Validate bound arguments and return on failure
-      const bindArgsValidation = await this._validateBindArgs(bindArgs);
+      const bindArgsValidation = await this._validateBindArgs(rawBindArgs);
       if (!isOk(bindArgsValidation)) {
         await this._executeResultCallbacks(bindArgsValidation, {
           rawInput,
+          rawBindArgs,
           prevState,
           validatedInput,
           validatedBindArgs,
@@ -261,7 +264,7 @@ class Crafter<
         input: inputValidation.value,
         bindArgs: bindArgsValidation.value,
         errors: this._buildErrorFunctions(),
-        metadata: { rawInput, prevState },
+        metadata: { rawInput, rawBindArgs, prevState },
       });
 
       // Return on `undefined` (implicit return error)
@@ -269,6 +272,7 @@ class Crafter<
         const implicitReturnError = createImplicitReturnErrorResult();
         await this._executeResultCallbacks(implicitReturnError, {
           rawInput,
+          rawBindArgs,
           prevState,
           validatedInput,
           validatedBindArgs,
@@ -294,6 +298,7 @@ class Crafter<
       // Execute callbacks and return final result
       await this._executeResultCallbacks(finalResult, {
         rawInput,
+        rawBindArgs,
         prevState,
         validatedInput,
         validatedBindArgs,
@@ -316,6 +321,7 @@ class Crafter<
         const errorResult = this._handleThrownError(error, handleThrownErrorFn);
         await this._executeResultCallbacks(errorResult, {
           rawInput,
+          rawBindArgs,
           prevState,
           validatedInput,
           validatedBindArgs,

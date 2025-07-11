@@ -364,9 +364,10 @@ describe("Basic Workflows", () => {
         expect(result.data).toBe("Alice x3");
       }
 
-      // Action metadata only contains rawInput and prevState
+      // Action metadata contains rawInput, rawBindArgs, and prevState
       expect(capturedMetadata).toEqual({
         rawInput: undefined,
+        rawBindArgs: [3, { name: "Alice", age: 25 }],
         prevState: undefined,
       });
     });
@@ -398,6 +399,7 @@ describe("Basic Workflows", () => {
       // The extra parameter should be captured as rawInput for metadata
       expect(capturedMetadata).toEqual({
         rawInput: "extraParameter",
+        rawBindArgs: [5],
         prevState: undefined,
       });
     });
@@ -833,15 +835,17 @@ describe("Basic Workflows", () => {
 
       await action(3, "Hi");
 
-      // Action metadata should only have rawInput and prevState
+      // Action metadata should have rawInput, rawBindArgs, and prevState
       expect(capturedActionMetadata).toEqual({
         rawInput: "Hi",
+        rawBindArgs: [3],
         prevState: undefined,
       });
 
       // Callback metadata should have all fields including validated data
       expect(capturedCallbackMetadata).toEqual({
         rawInput: "Hi",
+        rawBindArgs: [3],
         validatedInput: "Hi",
         validatedBindArgs: [3],
         prevState: undefined,
@@ -874,15 +878,17 @@ describe("Basic Workflows", () => {
       const previousState = { success: true as const, data: "previous" };
       await action(2, previousState, "test");
 
-      // Action metadata should include prevState
+      // Action metadata should include rawBindArgs and prevState
       expect(capturedActionMetadata).toEqual({
         rawInput: "test",
+        rawBindArgs: [2],
         prevState: previousState,
       });
 
       // Callback metadata should have all fields
       expect(capturedCallbackMetadata).toEqual({
         rawInput: "test",
+        rawBindArgs: [2],
         validatedInput: "test",
         validatedBindArgs: [2],
         prevState: previousState,

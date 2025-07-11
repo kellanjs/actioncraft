@@ -33,6 +33,7 @@ describe("Callbacks", () => {
       expect(onStartMock).toHaveBeenCalledWith({
         metadata: expect.objectContaining({
           rawInput: "hello",
+          rawBindArgs: [],
           validatedInput: undefined, // Not yet validated
           validatedBindArgs: undefined, // Not yet validated
         }),
@@ -57,6 +58,7 @@ describe("Callbacks", () => {
       expect(onStartMock).toHaveBeenCalledWith({
         metadata: expect.objectContaining({
           rawInput: 123,
+          rawBindArgs: [],
           validatedInput: undefined,
           validatedBindArgs: undefined,
         }),
@@ -117,6 +119,7 @@ describe("Callbacks", () => {
       expect(capturedMetadata).toEqual(
         expect.objectContaining({
           rawInput: "meta",
+          rawBindArgs: [2],
           prevState: prevState,
           validatedInput: undefined,
           validatedBindArgs: undefined,
@@ -143,9 +146,41 @@ describe("Callbacks", () => {
       expect(capturedMetadata).toEqual(
         expect.objectContaining({
           rawInput: undefined,
+          rawBindArgs: [],
           prevState: undefined,
           validatedInput: undefined,
           validatedBindArgs: undefined,
+        }),
+      );
+    });
+
+    it("should provide rawBindArgs even when validation fails", async () => {
+      let capturedErrorMetadata: unknown;
+
+      const action = create()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema] as const,
+        })
+        .action(async ({ input }) => {
+          return input;
+        })
+        .callbacks({
+          onError: ({ metadata }) => {
+            capturedErrorMetadata = metadata;
+          },
+        })
+        .craft();
+
+      // @ts-expect-error - Testing invalid input to trigger validation failure
+      await action(42, 123); // bindArg is valid, input is invalid
+
+      expect(capturedErrorMetadata).toEqual(
+        expect.objectContaining({
+          rawInput: 123,
+          rawBindArgs: [42],
+          validatedInput: undefined, // Input validation failed
+          validatedBindArgs: undefined, // Not reached
         }),
       );
     });

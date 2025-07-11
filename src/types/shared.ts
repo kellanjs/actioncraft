@@ -6,6 +6,7 @@ import type {
   InferValidatedInput,
   InferValidatedBindArgs,
   InferRawInput,
+  InferRawBindArgs,
 } from "./schemas.js";
 
 // ============================================================================
@@ -86,6 +87,8 @@ export type BaseMetadata<
 > = {
   /** Original input before validation */
   rawInput?: InferRawInput<TSchemas>;
+  /** Original bind arguments before validation */
+  rawBindArgs?: InferRawBindArgs<TSchemas>;
   /** Previous result when using useActionState */
   prevState?: InferPrevStateArg<TConfig, TSchemas, TErrors, TData>;
 };

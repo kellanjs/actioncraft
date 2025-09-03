@@ -1,6 +1,6 @@
 ⚠️🚧 The library hasn't reached a stable release yet. Expect bugs and potentially breaking API changes until then.
 
-# ActionCraft
+# Actioncraft
 
 Streamline your server actions.
 
@@ -21,24 +21,25 @@ Streamline your server actions.
   - [Example](#example)
   - [Result Format](#result-format)
 - [Walkthrough](#walkthrough)
-  - [.create() - Configure Your Action](#create)
+  - [.config() - Configure Your Action](#config)
   - [.schemas() - Add Validation](#schemas)
   - [.errors() - Define Custom Errors](#errors)
-  - [.action() - Implement Business Logic](#action)
+  - [.handler() - Implement Business Logic](#handler)
   - [.callbacks() - Add Lifecycle Hooks](#callbacks)
-  - [.craft() - Build Your Action](#craft)
 - [Using Your Actions](#using-your-actions)
   - [Basic Usage](#basic-usage)
   - [Error Handling](#error-handling)
   - [React Forms with useActionState](#react-forms-with-useactionstate)
   - [Progressive Enhancement](#progressive-enhancement)
 - [Complete Example](#complete-example)
-- [Integrations](#integrations)
-  - [Utilities](#utilities)
-  - [React Query](#react-query)
 - [Advanced Features](#advanced-features)
   - [Bind Arguments](#bind-arguments)
-- [Type Inference Utilities](#type-inference-utilities)
+- [Utilities](#utilities)
+  - [Type Inference](#type-inference)
+  - [Input Validation](#input-validation)
+- [Integration Utilities](#integration-utilities)
+  - [Actioncraft Errors](#actioncraft-errors)
+  - [React Query](#react-query)
 
 ## Quick Start
 
@@ -50,18 +51,40 @@ npm install @kellanjs/actioncraft
 
 ### Overview
 
-ActionCraft makes it easy to create type-safe server actions with first-class error-handling support. Here's the basic structure you'll follow:
+Actioncraft makes it easy to create type-safe server actions with first-class error-handling support.
+
+The library supports two different syntax patterns, aptly referred to as the `action() api` and the `craft() api`. Both are functionally the same, so use whichever you prefer!
+
+For the sake of simplicity, this document will use the same pattern (the `action() api`) for all usage examples, but either pattern would produce the exact same result.
+
+#### action() api
 
 ```typescript
-const action = create(...)
+export const example = action() // We call action() first to create a builder to use
+  .config(...)
   .schemas(...)
   .errors(...)
-  .action(...)
+  .handler(...)
   .callbacks(...)
-  .craft();
+  .craft(); // And we call craft() last to build and return your type-safe server action
 ```
 
-ActionCraft uses a fluent builder pattern, making it simple to chain one method after the next to create a full-featured server action. The order in which these methods are defined is important for type inference to work properly, so you'll see this same structure repeated often throughout the documentation. Always make sure to chain your methods together like this for the best experience!
+#### craft() api
+
+```typescript
+// We call craft() first, and it provides us with a builder to use
+export const example = craft(async (action) =>
+  action
+    .config(...)
+    .schemas(...)
+    .errors(...)
+    .handler(...)
+    .callbacks(...)
+    // No craft() needed here, because it's already wrapping everything!
+);
+```
+
+Actioncraft uses a fluent builder design, making it simple to chain one method after the next to create a full-featured server action. Regardless of which syntax pattern you use, the order in which the methods are defined is important for type inference to work properly, so you'll see the same structure repeated often throughout the documentation. Always make sure to chain your methods together like this for the best experience!
 
 ### Example
 
@@ -70,7 +93,7 @@ With this basic structure in mind, let's see what a more detailed example looks 
 ```typescript
 "use server";
 
-import { create } from "@kellanjs/actioncraft";
+import { action } from "@kellanjs/actioncraft";
 import { z } from "zod";
 
 const newUserInputSchema = z.object({
@@ -79,7 +102,11 @@ const newUserInputSchema = z.object({
   age: z.number(),
 });
 
-export const createNewUser = create()
+export const createNewUser = action()
+  // Define configuration settings
+  .config({
+    validationErrorFormat: "nested",
+  })
   // Define the validation schema
   .schemas({
     inputSchema: newUserInputSchema,
@@ -99,7 +126,7 @@ export const createNewUser = create()
       }) as const,
   })
   // Define your server action logic
-  .action(async ({ input, errors }) => {
+  .handler(async ({ input, errors }) => {
     // These are your validated input values
     const { name, email, age } = input;
 
@@ -112,13 +139,12 @@ export const createNewUser = create()
 
     return { newUser };
   })
-  // Define lifecycle callbacks (optional)
+  // Define lifecycle callbacks
   .callbacks({
-    onSettled: (result) => {
+    onSettled: ({ result }) => {
       // Log what happened if you want
     },
   })
-  // Finally, build the full type-safe action
   .craft();
 ```
 
@@ -126,7 +152,7 @@ export const createNewUser = create()
 
 Server actions work best when you're returning serializable data. Throwing errors is less effective in this context, because Next.js will sanitize Error class objects that are thrown in your action, leaving you without useful error information on the client. You might see something in development, but in production, if you try to display `error.message`, you'll likely see something along the lines of: "An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details."
 
-ActionCraft was designed with this fundamental behavior in mind! Instead of throwing errors, we're working exclusively with structured, serializable objects every step of the way, so errors in your action will always return the data you need.
+Actioncraft was designed with this fundamental behavior in mind! Instead of throwing errors, we're working exclusively with structured, serializable objects every step of the way, so errors in your action will always return the data you need.
 
 The default result format should feel pretty familiar: `{ success: true, data: T } | { success: false, error: E }`
 
@@ -141,7 +167,7 @@ const handleCreateNewUser = async (userData) => {
     // If the action was successful, then you get back typed return data
     toast.success("User created:", result.data.newUser);
   } else {
-    // If the action was unsuccessful, then you get type-safe error handling
+    // If the action was unsuccessful, then you get fully typed error handling
     switch (result.error.type) {
       case "INPUT_VALIDATION":
         handleInputValidationErrorLogic();
@@ -162,31 +188,19 @@ const handleCreateNewUser = async (userData) => {
 
 ## Walkthrough
 
-Now that we've covered the basic structure of an action and looked at a simple example, let's take a more detailed look at each method in the chain and what it can do.
+Now that we've covered the basic structure of an action and looked at a simple example, let's take a more detailed look at how Actioncraft works and what you can do with it.
 
-### .create()
+### .config()
 
-Actions always begin with the `create` method. You can use it with no arguments for sensible defaults, or pass a configuration object to customize behavior:
-
-```typescript
-// We're just taking the default configuration here
-const action = create()
-  .schemas(...)
-  .errors(...)
-  .action(...)
-  .callbacks(...)
-  .craft();
-```
-
-#### Configuration Options
-
-When you want to customize behavior, pass a configuration object:
+Actioncraft provides several configuration options to customize your action. Sensible defaults are provided, so you only need to define the `config` if you specifically want to override something. When you want to customize a certain behavior, just pass a configuration object:
 
 ```typescript
-const action = create({
+export const getUser = action()
+  .config({
+    name: "getUser",
     useActionState: true,
-    resultFormat: "api",
-    validationErrorFormat: "flattened",
+    resultFormat: "functional",
+    validationErrorFormat: "nested",
     handleThrownError: (error) => ({
       type: "CUSTOM_ERROR",
       message: error.message,
@@ -194,39 +208,61 @@ const action = create({
   })
   .schemas(...)
   .errors(...)
-  .action(...)
+  .handler(...)
   .callbacks(...)
   .craft();
 ```
 
-##### `useActionState: boolean`
+#### `name: string`
+
+**Default:** `undefined`
+
+An optional identifier for your action that will be included in error messages to help with debugging:
+
+```typescript
+export const updateUserProfile = action()
+  .config({ name: "updateUserProfile" })
+  .schemas({ inputSchema: userSchema })
+  .handler(async ({ input }) => {
+    // Your handler logic
+  })
+  .craft();
+
+// If validation fails, the error message will be:
+// "Input validation failed in action \"updateUserProfile\""
+// instead of just:
+// "Input validation failed"
+```
+
+#### `useActionState: boolean`
 
 **Default:** `false`
 
 Set to `true` to make your action compatible with React's `useActionState` hook:
 
 ```typescript
-const action = create({ useActionState: true })
+export const getUser = action()
+  .config({ useActionState: true })
   .schemas(...)
   .errors(...)
-  .action(...)
+  .handler(...)
   .callbacks(...)
   .craft();
 
-// Now you can use it with useActionState like this:
-const [state, formAction] = useActionState(action, initial(action));
+// Now you can use it with useActionState in your client components like this:
+const [state, action] = useActionState(getUser, initial(getUser));
 ```
 
-##### `resultFormat: "api" | "functional"`
+#### `resultFormat: "api" | "functional"`
 
 **Default:** `"api"`
 
-ActionCraft supports two different return formats:
+Actioncraft supports two different return formats:
 
 - **`"api"`**: `{ success: true, data: T } | { success: false, error: E }`
 - **`"functional"`**: `{ type: "ok", value: T } | { type: "err", error: E }`
 
-##### `validationErrorFormat: "flattened" | "nested"`
+#### `validationErrorFormat: "flattened" | "nested"`
 
 **Default:** `"flattened"`
 
@@ -235,19 +271,26 @@ Controls how validation errors are structured:
 - **`"flattened"`**: Returns a flat array of error messages
 - **`"nested"`**: Returns a nested object matching your schema structure
 
-##### `handleThrownError: (error: unknown) => UserDefinedError`
+#### `handleThrownError: (error: unknown) => UserDefinedError`
 
-By default, ActionCraft catches thrown errors and returns a structured error with type `"UNHANDLED"`. You can customize this behavior by passing an error handler function of your own:
+By default, Actioncraft catches thrown errors and returns a structured error with type `"UNHANDLED"`. You can customize this behavior by passing an error handler function of your own:
 
 ```typescript
-const action = create({
-  handleThrownError: (error) =>
-    ({
-      type: "CUSTOM_ERROR",
-      message: error instanceof Error ? error.message : "Something went wrong",
-      timestamp: new Date().toISOString(),
-    }) as const,
-});
+export const getUser = action()
+  .config({
+    handleThrownError: (error) =>
+      ({
+        type: "CUSTOM_ERROR",
+        message:
+          error instanceof Error ? error.message : "Something went wrong",
+        timestamp: new Date().toISOString(),
+      }) as const,
+  })
+  .schemas(...)
+  .errors(...)
+  .handler(...)
+  .callbacks(...)
+  .craft();
 ```
 
 You can even implement more complex logic if you want:
@@ -296,7 +339,7 @@ handleThrownError: (error: unknown) => {
 };
 ```
 
-ActionCraft's types are smart enough to infer all of these possibilities back on the client:
+Actioncraft's types are smart enough to infer all of these possibilities back on the client:
 
 ```typescript
 if (!result.success) {
@@ -309,17 +352,18 @@ Pretty cool!
 
 ### .schemas()
 
-With our action configured, let's add validation using schemas. ActionCraft supports any library that implements the **Standard Schema V1** interface. Validation is handled automatically - you just need to provide the schemas:
+With our action configured, let's add validation using schemas. Actioncraft supports any library that implements the **Standard Schema V1** interface. Validation is handled automatically - you just need to provide the schemas:
 
 ```typescript
-const action = create()
+export const getUser = action()
+  .config(...)
   .schemas({
     inputSchema,
     outputSchema,
     bindSchemas,
   })
   .errors(...)
-  .action(...)
+  .handler(...)
   .callbacks(...)
   .craft();
 ```
@@ -340,10 +384,11 @@ Validates arguments bound to the action with `.bind()`. If validation fails, a "
 
 ### .errors()
 
-Now that we have validation set up, let's define custom errors that our action can return. ActionCraft makes error handling really easy by letting you define structured error types:
+Now that we have validation set up, let's define custom errors that our action can return. Actioncraft makes error handling really easy by letting you define structured error types:
 
 ```typescript
-const action = create()
+export const errorExamples = action()
+  .config(...)
   .schemas(...)
   .errors({
     unauthorized: () =>
@@ -364,7 +409,7 @@ const action = create()
         email,
       }) as const,
   })
-  .action(...)
+  .handler(...)
   .callbacks(...)
   .craft();
 ```
@@ -384,13 +429,15 @@ Each error is defined as a function called an **ErrorDefinition**:
 The `as const` assertion is **required** for proper TypeScript inference. It ensures your error types are treated as literal types rather than generic:
 
 ```typescript
-// ❌ Without 'as const' - TypeScript infers { type: string, message: string }
+// ❌ Without 'as const' - TypeScript infers { type: string, message: string } :(
 badErrorDefinition: () => ({ type: "ERROR", message: "Something went wrong" });
 
-// ✅ With 'as const' - TypeScript infers { type: "ERROR", message: "Something went wrong" }
+// ✅ With 'as const' - TypeScript infers { type: "ERROR", message: "Something went wrong" } :D
 goodErrorDefinition: () =>
   ({ type: "ERROR", message: "Something went wrong" }) as const;
 ```
+
+Always remember the `as const` assertion when you define your errors!
 
 #### Reusing Common Errors
 
@@ -420,32 +467,34 @@ export const notFound = (resource: string, id: string) =>
 ```
 
 ```typescript
-// my-action.ts
-export const action = create()
+// get-user.ts
+export const getUser = action()
+  .config(...)
   .schemas(...)
   .errors({
     // Easily use common shared errors
     unauthorized,
     rateLimited,
     notFound,
-    // Plus any action-specific errors
+    // Plus any action-specific errors you need
     emailTaken: (email: string) =>
       ({ type: "EMAIL_TAKEN", email }) as const,
   })
-  .action(...)
+  .handler(...)
   .callbacks(...)
   .craft();
 ```
 
-#### Using Errors in Your Action
+#### Using Errors in Your Action Handler
 
-Once defined, you can use these errors in your action logic. When an error occurs, just call and return that particular error function:
+Once defined, you can use these errors in your handler logic. When an error occurs, just call and return that particular error function:
 
 ```typescript
-const action = create()
+export const getUser = action()
+  .config(...)
   .schemas(...)
   .errors(...)
-  .action(async ({ input, errors }) => {
+  .handler(async ({ input, errors }) => {
     // Check permissions
     if (!hasPermission(input.userId)) {
       return errors.unauthorized();
@@ -464,22 +513,23 @@ const action = create()
   .craft();
 ```
 
-### .action()
+### .handler()
 
-The `action` method is where you implement the core functionality of your server action. ActionCraft provides several helpful parameters to make things quick and easy:
+The `handler` method is where you implement the core functionality of your server action. Actioncraft provides several helpful parameters to make things quick and easy for you:
 
 ```typescript
-const action = create()
+export const getUser = action()
+  .config(...)
   .schemas(...)
   .errors(...)
-  .action(async ({ input, bindArgs, errors, metadata }) => {
-    // Action logic here
+  .handler(async ({ input, bindArgs, errors, metadata }) => {
+    // Server action logic here
   })
   .callbacks(...)
   .craft();
 ```
 
-#### Action Parameters
+#### Handler Parameters
 
 ##### `input`
 
@@ -500,16 +550,18 @@ Contains additional request information:
 - `rawInput`: The original, unvalidated input data
 - `rawBindArgs`: The original, unvalidated bound arguments array
 - `prevState`: Previous state (when using `useActionState`)
+- `actionId`: A unique identifier for the action instance
 
 ### .callbacks()
 
 Sometimes you need to hook into the action lifecycle for logging, analytics, or other side effects. The `callbacks` method lets you define functions that run at key moments:
 
 ```typescript
-const action = create()
+export const getUser = action()
+  .config(...)
   .schemas(...)
   .errors(...)
-  .action(...)
+  .handler(...)
   .callbacks({
     onStart: ({metadata}) => { ... },
     onSuccess: ({data}) => { ... },
@@ -527,7 +579,7 @@ Executes first, before any validation or action logic has occurred.
 
 ##### `onSuccess?: (params: { data, metadata }) => Promise<void> | void`
 
-Executes when your action completes successfully. The `data` parameter contains your action's return value.
+Executes when your action completes successfully. The `data` parameter contains your action's typed return value.
 
 ##### `onError?: (params: { error, metadata }) => Promise<void> | void`
 
@@ -539,44 +591,32 @@ Executes after your action completes, regardless of success or failure. Useful f
 
 Note: All callback methods support async operations and won't affect your action's result, even if they throw errors.
 
-### .craft()
-
-Every action should end with the `craft` method. It doesn't take any arguments or anything like that. Its only purpose is to build the final action based on everything that has been defined in the previous methods.
-
-```typescript
-const action = create()
-  .schemas(...)
-  .errors(...)
-  .action(...)
-  .callbacks(...)
-  .craft(); // Returns your fully-typed server action
-```
-
-This is the final step in the builder chain. Once you call `craft()`, you have a complete, type-safe server action ready to export and use in your application.
-
 ## Using Your Actions
 
-Now that you know how to build actions with ActionCraft, let's see how you can use them in your application.
+Now that you know how to build actions with Actioncraft, let's see how you can use them in your application.
 
 ### Basic Usage
 
 You can call your action like any async function:
 
 ```typescript
-const result = await createNewUser({
-  name: "John",
-  email: "john@example.com",
-  age: 25,
-});
+// client-component.ts
+const handleClick = async () => {
+  const result = await createNewUser({
+    name: "John",
+    email: "john@example.com",
+    age: 25,
+  });
 
-if (result.success) {
-  // Action succeeded
-  console.log("User created:", result.data.newUser);
-} else {
-  // Action failed
-  console.log("Error:", result.error.type);
-  console.log("Message:", result.error.message);
-}
+  if (result.success) {
+    // Action succeeded
+    console.log("User created:", result.data.newUser);
+  } else {
+    // Action failed
+    console.log("Error:", result.error.type);
+    console.log("Message:", result.error.message);
+  }
+};
 ```
 
 ### Error Handling
@@ -609,10 +649,11 @@ if (!result.success) {
 For React forms, you can use actions configured for `useActionState`:
 
 ```typescript
-const updateUser = create({ useActionState: true })
+export const updateUser = action()
+  .config({ useActionState: true })
   .schemas(...)
   .errors(...)
-  .action(...)
+  .handler(...)
   .callbacks(...)
   .craft();
 ```
@@ -621,7 +662,7 @@ When `useActionState: true` is set, your action's return type changes to include
 
 #### The `initial()` Helper
 
-When using `useActionState`, you have to provide the hook with a proper initial state that matches the return type of your action. That's where ActionCraft's `initial` function comes in. It returns a special error object with type `"INITIAL_STATE"` that you can use to detect when the form hasn't been submitted yet:
+When using `useActionState`, you have to provide the hook with a proper initial state that matches the return type of your action. That's where Actioncraft's `initial` function comes in. It returns a special error object with type `"INITIAL_STATE"` that you can use to detect when the form hasn't been submitted yet:
 
 ```typescript
 function UserForm() {
@@ -652,14 +693,15 @@ By providing a schema which supports FormData, your action can work with or with
 
 ```typescript
 // This action handles FormData from server-side form submissions
-const serverAction = create({ useActionState: true })
+export const createNewUser = action()
+  .config({ useActionState: true })
   .schemas({
     inputSchema: zfd.formData({
       name: zfd.text(),
       email: zfd.text(z.string().email()),
     }),
   })
-  .action(async ({ input }) => {
+  .handler(async ({ input }) => {
     // Save the validated user data to database
     const user = await db.user.create({
       data: {
@@ -678,12 +720,12 @@ const serverAction = create({ useActionState: true })
 
 ## Complete Example
 
-Now that we've gone over how to create actions and how to use them on the client, let's check out an example that puts a lot of these ideas together:
+Now that we've gone over how to create actions and how to use them on the client, let's check out a more thorough example that puts a lot of these ideas together:
 
 ```typescript
 "use server";
 
-import { create } from "@kellanjs/actioncraft";
+import { action } from "@kellanjs/actioncraft";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -693,7 +735,8 @@ const updateProfileSchema = z.object({
   bio: z.string().max(500, "Bio must be under 500 characters"),
 });
 
-export const updateProfile = create({ useActionState: true })
+export const updateProfile = action()
+  .config({ useActionState: true })
   .schemas({ inputSchema: updateProfileSchema })
   .errors({
     unauthorized: () =>
@@ -710,7 +753,7 @@ export const updateProfile = create({ useActionState: true })
         message: "Too many requests. Please try again later.",
       }) as const,
   })
-  .action(async ({ input, errors }) => {
+  .handler(async ({ input, errors }) => {
     // Check authentication
     const session = await getSession();
     if (!session) return errors.unauthorized();
@@ -823,64 +866,282 @@ export default function ProfileForm() {
 }
 ```
 
-## Integrations
+## Advanced Features
 
-### Utilities
+### Bind Arguments
 
-ActionCraft comes with several utilities intended to make it easier to integrate with libraries like React Query. Let's take a quick look.
+Actioncraft supports binding arguments to actions. Just provide schemas, and you'll get the validated bindArgs values to use in the action handler.
 
-#### `ActionCraftError`
+If validation fails, an error with type `BIND_ARGS_VALIDATION` is returned to the client.
 
-A standard Error class that wraps ActionCraft error data while preserving type information:
+#### Example: Multi-Tenant Action
+
+```typescript
+export const createPost = action()
+  .schemas({
+    bindSchemas: [z.string()], // Organization ID
+    inputSchema: z.object({
+      title: z.string(),
+      content: z.string(),
+    }),
+  })
+  .handler(async ({ bindArgs, input }) => {
+    const [organizationId] = bindArgs;
+
+    const post = await db.post.create({
+      data: {
+        ...input,
+        organizationId,
+      },
+    });
+
+    return { post };
+  })
+  .craft();
+
+// Create organization-specific actions
+const createPostForOrgA = createPost.bind(null, "org-a-id");
+const createPostForOrgB = createPost.bind(null, "org-b-id");
+
+// Each bound action automatically includes the correct org ID
+const result = await createPostForOrgA({
+  title: "My Post",
+  content: "Post content...",
+});
+```
+
+#### Example: Configuration Binding
+
+```typescript
+export const sendEmail = action()
+  .schemas({
+    bindSchemas: [
+      z.object({
+        apiKey: z.string(),
+        fromEmail: z.string(),
+      }),
+    ],
+    inputSchema: z.object({
+      to: z.string().email(),
+      subject: z.string(),
+      body: z.string(),
+    }),
+  })
+  .handler(async ({ bindArgs, input }) => {
+    const [config] = bindArgs;
+
+    // Use the bound configuration
+    const emailService = new EmailService(config.apiKey);
+    const result = await emailService.send({
+      from: config.fromEmail,
+      to: input.to,
+      subject: input.subject,
+      body: input.body,
+    });
+
+    return { messageId: result.id };
+  })
+  .craft();
+
+// Create environment-specific email actions
+const sendProductionEmail = sendEmail.bind(null, {
+  apiKey: process.env.PROD_EMAIL_API_KEY,
+  fromEmail: "noreply@company.com",
+});
+
+const sendDevelopmentEmail = sendEmail.bind(null, {
+  apiKey: process.env.DEV_EMAIL_API_KEY,
+  fromEmail: "dev@company.com",
+});
+```
+
+## Utilities
+
+Actioncraft provides several utilities to help you work with your actions more effectively.
+
+### Type Inference
+
+These utilities extract useful type information from your actions.
+
+#### Using `$Infer`
+
+Every crafted action includes an `$Infer` property that provides direct access to all inferred types:
+
+- **`$Infer.Input`** - The input type that the action expects
+- **`$Infer.Data`** - The success data type from your action's return value
+- **`$Infer.Errors`** - All possible error types your action can return
+- **`$Infer.Result`** - The complete result type (success and error cases)
+
+#### Type Extraction Example
+
+```typescript
+import { action } from "@kellanjs/actioncraft";
+import { z } from "zod";
+
+export const updateUser = action()
+  .schemas({
+    inputSchema: z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string().email(),
+    }),
+  })
+  .errors({
+    notFound: (id: string) => ({ type: "NOT_FOUND", id }) as const,
+    unauthorized: () => ({ type: "UNAUTHORIZED" }) as const,
+  })
+  .handler(async ({ input, errors }) => {
+    // ... implementation
+    return { user: input, updatedAt: new Date() };
+  })
+  .craft();
+
+// Extracted types using $Infer:
+type ActionInput = typeof updateUser.$Infer.Input;
+// { id: string, name: string, email: string }
+
+type ActionData = typeof updateUser.$Infer.Data;
+// { user: { id: string, name: string, email: string }, updatedAt: Date }
+
+type ActionErrors = typeof updateUser.$Infer.Errors;
+// { type: "NOT_FOUND", id: string } | { type: "UNAUTHORIZED" } |
+// { type: "INPUT_VALIDATION", issues: ... } | { type: "UNHANDLED", message: string }
+
+type ActionResult = typeof updateUser.$Infer.Result;
+// { success: true, data: { user: UserInput, updatedAt: Date } } |
+// { success: false, error: { type: "NOT_FOUND", id: string } | ... }
+```
+
+#### Using `Infer` Types
+
+You can also use these alternative type inference utilities if you prefer:
+
+```typescript
+import type {
+  InferInput,
+  InferResult,
+  InferData,
+  InferErrors,
+} from "@kellanjs/actioncraft";
+
+type ActionInput = InferInput<typeof updateUser>;
+type ActionResult = InferResult<typeof updateUser>;
+type ActionData = InferData<typeof updateUser>;
+type ActionErrors = InferErrors<typeof updateUser>;
+```
+
+These provide the exact same type information as the `$Infer` utility.
+
+### Input Validation
+
+#### Using `$validate`
+
+Actioncraft provides a utility to help you easily validate data against a particular action's input schema. The `$validate` method is available on every crafted action by default, and runs the same validation logic used during action execution. This is especially useful when you want to perform client-side validation before calling an action:
+
+```typescript
+// On the server...
+export const createUser = action()
+  .schemas({ inputSchema: userSchema })
+  .handler(async ({ input }) => ({ user: input }))
+  .craft();
+
+// On the client...
+// Validate input without executing the action
+const result = await createUser.$validate({
+  name: "John",
+  email: "john@example.com",
+  age: 25,
+});
+
+if (result.success) {
+  console.log("Valid input:", result.data);
+  // Now we can call the action, knowing that input validation will succeed
+} else {
+  console.log("Validation failed:", result.error);
+}
+```
+
+#### Validation Results
+
+Returns `{ success: true, data: ValidatedInput }` on success, or `{ success: false, error: ValidationError }` on failure.
+
+## Integration Utilities
+
+Actioncraft comes with several utilities intended to make it easier to integrate with libraries like React Query.
+
+### Actioncraft Errors
+
+#### `ActioncraftError`
+
+A standard Error class that wraps Actioncraft error data while preserving type information:
 
 ```typescript
 // The error preserves all your action's error data in the `cause` property
-if (error instanceof ActionCraftError) {
-  console.log(error.message); // "ActionCraft Error: EMAIL_TAKEN - Email already exists"
+if (error instanceof ActioncraftError) {
+  console.log(error.message); // "Actioncraft Error: EMAIL_TAKEN - Email already exists"
   console.log(error.cause); // { type: "EMAIL_TAKEN", message: "Email already exists", email: "user@example.com" }
 }
 ```
 
 #### `unwrap(result)`
 
-Extracts the data from a successful result or throws an `ActionCraftError`:
+Extracts the data from a successful result or throws an `ActioncraftError`:
 
 ```typescript
-const result = await myAction(data);
+const result = await createNewUser(data);
 const userData = unwrap(result); // Throws if result.success === false
 ```
 
 #### `throwable(action)`
 
-Wraps an action to automatically throw errors as `ActionCraftError` instances instead of returning them:
+Wraps an action to automatically throw errors as `ActioncraftError` instances instead of returning them as objects:
 
 ```typescript
 const throwingAction = throwable(myAction);
 const userData = await throwingAction(data); // Throws on error
 ```
 
-#### `isActionCraftError(error, action)`
+#### `isActioncraftError(error, action)`
 
-Type guard that enables full type inference for your action's specific error types:
+Type guard that checks if an error is an `ActioncraftError`. When called with just an error object, it performs basic structural validation. When called with both error and action, it additionally verifies that the error originated from that specific action, providing full type inference for that action's error types.
 
 ```typescript
 try {
   const data = await throwable(updateUser)(userData);
+  console.log("Updated user data", data); // We know data exists at this point
 } catch (error) {
-  if (isActionCraftError(error, updateUser)) {
-    // error.cause is now typed with updateUser's possible error types
+  // Basic usage - checks if error is any ActioncraftError
+  if (isActioncraftError(error)) {
+    console.log("This is an ActioncraftError:", error.cause.type);
+    // error.cause has generic typing here
+  }
+
+  // Advanced usage - verifies error came from the given action
+  if (isActioncraftError(error, updateUser)) {
+    // error.cause is now typed with updateUser's specific error types
     switch (error.cause.type) {
-      case "EMAIL_TAKEN": // Fully typed
-      case "UNAUTHORIZED": // Fully typed
-      case "INPUT_VALIDATION": // Fully typed
-        // Handle each error type
+      case "EMAIL_TAKEN":
+        showError(`Email ${error.cause.email} is already taken`);
+        break;
+      case "UNAUTHORIZED":
+        redirectToLogin();
+        break;
+      case "INPUT_VALIDATION":
+        showValidationErrors(error.cause.issues);
         break;
     }
   }
 }
 ```
 
-**Note:** The `action` argument is required for proper type inference - it tells TypeScript which action's error types to expect.
+**Key Differences:**
+
+- **Without action parameter**: Performs basic structural validation, returns `true` for any `ActioncraftError`
+- **With action parameter**: Additionally verifies the error originated from that specific action and provides full type inference for that action's error types
+
+#### `getActionId(action)`
+
+Utility to extract the unique ID from a crafted action. Useful for debugging and logging purposes.
 
 ### React Query
 
@@ -900,14 +1161,14 @@ function UserProfile({ userId }: { userId: string }) {
     queryKey: ["user", userId],
     queryFn: async () => {
       const result = await fetchUserProfile({ userId });
-      return unwrap(result); // Throws ActionCraftError on failure
+      return unwrap(result); // Throws ActioncraftError on failure
     },
   });
 
   if (isLoading) return <div>Loading...</div>;
 
   if (error) {
-    if (isActionCraftError(error, fetchUserProfile)) {
+    if (isActioncraftError(error, fetchUserProfile)) {
       // Full type inference for your action's specific error types
       switch (error.cause.type) {
         case "USER_NOT_FOUND":
@@ -945,19 +1206,19 @@ Use the `throwable()` utility for mutations:
 ```typescript
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateUserProfile } from "./actions";
-import { throwable, isActionCraftError } from "@kellanjs/actioncraft";
+import { throwable, isActioncraftError } from "@kellanjs/actioncraft";
 
 function EditProfileForm() {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: throwable(updateUserProfile), // Throws ActionCraftError on failure
+    mutationFn: throwable(updateUserProfile), // Throws ActioncraftError on failure
     onSuccess: (data) => {
       // data is properly typed as your action's success data
       queryClient.invalidateQueries({ queryKey: ["user", data.user.id] });
     },
     onError: (error) => {
-      if (isActionCraftError(error, updateUserProfile)) {
+      if (isActioncraftError(error, updateUserProfile)) {
         // Handle specific error types with full type safety
         switch (error.cause.type) {
           case "UNAUTHORIZED":
@@ -993,162 +1254,10 @@ function EditProfileForm() {
 }
 ```
 
-## Advanced Features
+## Thanks
 
-### Bind Arguments
-
-ActionCraft supports binding arguments to actions. Just provide schemas, and you'll get the validated bindArgs values to use in the action.
-
-If validation fails, an error with type "BIND_ARGS_VALIDATION" is returned to the client.
-
-#### Example: Multi-Tenant Action
-
-```typescript
-const createPost = create()
-  .schemas({
-    bindSchemas: [z.string()], // Organization ID
-    inputSchema: z.object({
-      title: z.string(),
-      content: z.string(),
-    }),
-  })
-  .action(async ({ bindArgs, input }) => {
-    const [organizationId] = bindArgs;
-
-    const post = await db.post.create({
-      data: {
-        ...input,
-        organizationId,
-      },
-    });
-
-    return { post };
-  })
-  .craft();
-
-// Create organization-specific actions
-const createPostForOrgA = createPost.bind(null, "org-a-id");
-const createPostForOrgB = createPost.bind(null, "org-b-id");
-
-// Each bound action automatically includes the correct org ID
-const result = await createPostForOrgA({
-  title: "My Post",
-  content: "Post content...",
-});
-```
-
-#### Example: Configuration Binding
-
-```typescript
-const sendEmail = create()
-  .schemas({
-    bindSchemas: [
-      z.object({
-        apiKey: z.string(),
-        fromEmail: z.string(),
-      }),
-    ],
-    inputSchema: z.object({
-      to: z.string().email(),
-      subject: z.string(),
-      body: z.string(),
-    }),
-  })
-  .action(async ({ bindArgs, input }) => {
-    const [config] = bindArgs;
-
-    // Use the bound configuration
-    const emailService = new EmailService(config.apiKey);
-    const result = await emailService.send({
-      from: config.fromEmail,
-      to: input.to,
-      subject: input.subject,
-      body: input.body,
-    });
-
-    return { messageId: result.id };
-  })
-  .craft();
-
-// Create environment-specific email actions
-const sendProductionEmail = sendEmail.bind(null, {
-  apiKey: process.env.PROD_EMAIL_API_KEY,
-  fromEmail: "noreply@company.com",
-});
-
-const sendDevelopmentEmail = sendEmail.bind(null, {
-  apiKey: process.env.DEV_EMAIL_API_KEY,
-  fromEmail: "dev@company.com",
-});
-```
-
-## Type Inference Utilities
-
-ActionCraft provides several type inference utilities to extract types from your actions for use elsewhere in your application:
-
-### Available Utilities
-
-#### `InferInput<Action>`
-
-Infers the input type that the action expects. Returns `unknown` if no input schema is defined.
-
-#### `InferResult<Action>`
-
-Infers the complete result type, including both success and error cases. Respects your action's configuration (api/functional format, useActionState, etc.).
-
-#### `InferData<Action>`
-
-Infers the success data type from your action's return value.
-
-#### `InferErrors<Action>`
-
-Infers all possible error types your action can return, including custom errors, validation errors, and thrown errors.
-
-### Type Extraction Example
-
-```typescript
-import { create } from "@kellanjs/actioncraft";
-import type {
-  InferInput,
-  InferResult,
-  InferData,
-  InferErrors,
-} from "@kellanjs/actioncraft";
-import { z } from "zod";
-
-const updateUser = create()
-  .schemas({
-    inputSchema: z.object({
-      id: z.string(),
-      name: z.string(),
-      email: z.string().email(),
-    }),
-  })
-  .errors({
-    notFound: (id: string) => ({ type: "NOT_FOUND", id }) as const,
-    unauthorized: () => ({ type: "UNAUTHORIZED" }) as const,
-  })
-  .action(async ({ input, errors }) => {
-    // ... implementation
-    return { user: input, updatedAt: new Date() };
-  })
-  .craft();
-
-type ActionInput = InferInput<typeof updateUser>;
-// { id: string, name: string, email: string }
-
-type ActionResult = InferResult<typeof updateUser>;
-// { success: true, data: { user: UserInput, updatedAt: Date } } |
-// { success: false, error: { type: "NOT_FOUND", id: string } | ... }
-
-type ActionData = InferData<typeof updateUser>;
-// { user: { id: string, name: string, email: string }, updatedAt: Date }
-
-type ActionErrors = InferErrors<typeof updateUser>;
-// { type: "NOT_FOUND", id: string } | { type: "UNAUTHORIZED" } |
-// { type: "INPUT_VALIDATION", issues: ... } | { type: "UNHANDLED", message: string }
-```
+If you made it this far, thanks for checking out the library, and I hope you find it useful in your projects!
 
 ## License
 
-ActionCraft is open source under the terms of the [MIT license](https://github.com/kellanjs/actioncraft/blob/main/LICENSE).
+Actioncraft is open source under the terms of the [MIT license](https://github.com/kellanjs/actioncraft/blob/main/LICENSE).

@@ -8,35 +8,44 @@ import type {
 import type { CallbackMetadata } from "./shared.js";
 
 /**
- * Custom logging interface for ActionCraft.
+ * Custom logging interface for Actioncraft.
  */
-export type CrafterLogger = {
+export type Logger = {
   /** Called when callback functions fail */
   error?: (message: string, error: unknown) => void;
-  /** Called when ActionCraft detects internal bugs */
+  /** Called when Actioncraft detects internal bugs */
   warn?: (message: string, details?: unknown) => void;
 };
 
 /**
- * Configuration options for building actions.
+ * Configuration options for crafting actions.
  */
-export type CrafterConfig = {
+export type Config = {
+  /**
+   * Optional name for this action.
+   * When provided, error messages will include this identifier to help with debugging.
+   */
+  actionName?: string;
+
   /**
    * Result format returned by actions.
    * "api" returns {success, data/error}, "functional" returns {type, value/error}.
    * Ignored when useActionState is enabled.
+   * @default "api"
    */
   resultFormat?: "api" | "functional";
 
   /**
    * Validation error structure.
    * "flattened" returns array of {path, message}, "nested" groups by field.
+   * @default "flattened"
    */
   validationErrorFormat?: "flattened" | "nested";
 
   /**
    * Enables React useActionState compatibility.
    * Action accepts prevState parameter and returns a stateful result.
+   * @default false
    */
   useActionState?: boolean;
 
@@ -47,15 +56,15 @@ export type CrafterConfig = {
   handleThrownError?: (error: unknown) => UserDefinedError;
 
   /**
-   * Logger for ActionCraft internal events.
+   * Logger for Actioncraft internal events.
    */
-  logger?: CrafterLogger;
+  logger?: Logger;
 };
 
 /**
  * Schema definitions for validating inputs and outputs.
  */
-export type CrafterSchemas = {
+export type Schemas = {
   /** Validates input values passed to the action */
   inputSchema?: StandardSchemaV1;
 
@@ -70,16 +79,16 @@ export type CrafterSchemas = {
  * Custom error types that actions can return.
  * Each property is a function that creates a typed error object.
  */
-export type CrafterErrors = Record<string, ErrorDefinition>;
+export type Errors = Record<string, ErrorDefinition>;
 
 /**
  * Lifecycle hooks that run during action execution.
  * Callback errors are logged but do not affect action results.
  */
-export type CrafterCallbacks<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+export type Callbacks<
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = {
   /** Called when action starts executing, before any validation. */

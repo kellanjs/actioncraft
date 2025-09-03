@@ -1,4 +1,4 @@
-import { create } from "../../src/actioncraft";
+import { craft } from "../../src/index";
 import { describe, it, expect } from "../setup";
 
 // -----------------------------------------------------------------------------
@@ -31,7 +31,6 @@ const asyncStringSchema = {
   },
   // Convenience helper so the schema can also be invoked directly
   "~validate"(input: unknown) {
-    // @ts-ignore – this is structurally identical to the above validate fn
     return this["~standard"].validate(input);
   },
 } as const;
@@ -42,20 +41,26 @@ const asyncStringSchema = {
 
 describe("Async Schema Validation", () => {
   it("should validate input using an async schema", async () => {
-    const action = create()
-      .schemas({ inputSchema: asyncStringSchema })
-      .action(async ({ input }) => (input as string).toUpperCase())
-      .craft();
+    const action = craft((action) =>
+      action
+        .schemas({ inputSchema: asyncStringSchema })
+        .handler(async ({ input }) => (input as string).toUpperCase()),
+    );
 
     const result = await action("hello");
-    expect(result).toEqual({ success: true, data: "HELLO" });
+    expect(result).toEqual({
+      success: true,
+      data: "HELLO",
+      __ac_id: expect.any(String),
+    });
   });
 
   it("should return INPUT_VALIDATION error for invalid async input", async () => {
-    const action = create()
-      .schemas({ inputSchema: asyncStringSchema })
-      .action(async ({ input }) => input)
-      .craft();
+    const action = craft((action) =>
+      action
+        .schemas({ inputSchema: asyncStringSchema })
+        .handler(async ({ input }) => input),
+    );
 
     // @ts-expect-error – invalid input on purpose
     const result = await action(123);
@@ -66,13 +71,18 @@ describe("Async Schema Validation", () => {
   });
 
   it("should validate async bind args", async () => {
-    const action = create()
-      .schemas({ bindSchemas: [asyncStringSchema] as const })
-      .action(async ({ bindArgs }) => `arg:${bindArgs[0]}`)
-      .craft();
+    const action = craft((action) =>
+      action
+        .schemas({ bindSchemas: [asyncStringSchema] as const })
+        .handler(async ({ bindArgs }) => `arg:${bindArgs[0]}`),
+    );
 
     const ok = await action("test");
-    expect(ok).toEqual({ success: true, data: "arg:test" });
+    expect(ok).toEqual({
+      success: true,
+      data: "arg:test",
+      __ac_id: expect.any(String),
+    });
 
     // @ts-expect-error – invalid bind arg
     const bad = await action(42);
@@ -83,14 +93,15 @@ describe("Async Schema Validation", () => {
   });
 
   it("should propagate OUTPUT_VALIDATION errors coming from async schema", async () => {
-    const action = create()
-      .schemas({
-        inputSchema: asyncStringSchema,
-        outputSchema: asyncStringSchema,
-      })
-      // Intentionally return a wrong type to fail output validation
-      .action(async () => 123 as unknown)
-      .craft();
+    const action = craft((action) =>
+      action
+        .schemas({
+          inputSchema: asyncStringSchema,
+          outputSchema: asyncStringSchema,
+        })
+        // Intentionally return a wrong type to fail output validation
+        .handler(async () => 123 as unknown),
+    );
 
     const result = await action("valid-input");
 

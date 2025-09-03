@@ -1,20 +1,22 @@
-import { create, initial } from "../../src/actioncraft";
+import { craft, initial } from "../../src/index";
 import { stringSchema, numberSchema } from "../fixtures/schemas";
 import { describe, expect, it } from "../setup";
 
 describe("useActionState Integration", () => {
   describe("Action signature", () => {
     it("should create action with useActionState signature", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: stringSchema })
-        .action(async ({ input, metadata }) => {
-          // Should have access to previousState in metadata
-          expect(metadata.prevState).toBeDefined();
-          return (input as string).toUpperCase();
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input, metadata }) => {
+            // Should have access to previousState in metadata
+            expect(metadata.prevState).toBeDefined();
+            return (input as string).toUpperCase();
+          }),
+      );
 
       // useActionState signature: (previousState, formData)
       const initialState = initial(action);
@@ -24,22 +26,25 @@ describe("useActionState Integration", () => {
         success: true,
         data: "HELLO",
         values: "hello",
+        __ac_id: expect.any(String),
       });
     });
 
     it("should handle bind args with useActionState", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          const [multiplier] = bindArgs;
-          return (input as string).repeat(multiplier as number);
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [numberSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            const [multiplier] = bindArgs;
+            return (input as string).repeat(multiplier as number);
+          }),
+      );
 
       // useActionState with bindArgs: (bindArg1, ..., previousState, input)
       const initialState = initial(action);
@@ -49,23 +54,26 @@ describe("useActionState Integration", () => {
         success: true,
         data: "HiHiHi",
         values: "Hi",
+        __ac_id: expect.any(String),
       });
     });
 
     it("should handle multiple bind args with useActionState", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema, stringSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          const [multiplier, prefix] = bindArgs;
-          const repeated = (input as string).repeat(multiplier as number);
-          return `${prefix as string}${repeated}`;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [numberSchema, stringSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            const [multiplier, prefix] = bindArgs;
+            const repeated = (input as string).repeat(multiplier as number);
+            return `${prefix as string}${repeated}`;
+          }),
+      );
 
       const initialState = initial(action);
       const result = await action(2, "PREFIX:", initialState, "test");
@@ -74,17 +82,20 @@ describe("useActionState Integration", () => {
         success: true,
         data: "PREFIX:testtest",
         values: "test",
+        __ac_id: expect.any(String),
       });
     });
 
     it("should handle useActionState without input schema", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .action(async ({ metadata }) => {
-          return `Previous state success: ${metadata.prevState?.success}`;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .handler(async ({ metadata }) => {
+            return `Previous state success: ${metadata.prevState?.success}`;
+          }),
+      );
 
       const previousState = {
         success: true,
@@ -96,25 +107,28 @@ describe("useActionState Integration", () => {
         success: true,
         data: "Previous state success: true",
         values: undefined,
+        __ac_id: expect.any(String),
       });
     });
 
     it("should handle useActionState with only bind args", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({
-          bindSchemas: [stringSchema, numberSchema] as const,
-        })
-        .action(async ({ bindArgs, metadata }) => {
-          const [text, number] = bindArgs;
-          return {
-            text: text as string,
-            number: number as number,
-            hadPreviousState: !!metadata.prevState,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({
+            bindSchemas: [stringSchema, numberSchema] as const,
+          })
+          .handler(async ({ bindArgs, metadata }) => {
+            const [text, number] = bindArgs;
+            return {
+              text: text as string,
+              number: number as number,
+              hadPreviousState: !!metadata.prevState,
+            };
+          }),
+      );
 
       const initialState = initial(action);
       const result = await action("test", 42, initialState);
@@ -127,6 +141,7 @@ describe("useActionState Integration", () => {
           hadPreviousState: true,
         },
         values: undefined,
+        __ac_id: expect.any(String),
       });
     });
   });
@@ -135,14 +150,16 @@ describe("useActionState Integration", () => {
     it("should pass previous state to action", async () => {
       let capturedPreviousState: unknown;
 
-      const action = create({
-        useActionState: true,
-      })
-        .action(async ({ metadata }) => {
-          capturedPreviousState = metadata.prevState;
-          return "new result";
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .handler(async ({ metadata }) => {
+            capturedPreviousState = metadata.prevState;
+            return "new result";
+          }),
+      );
 
       const previousState = {
         success: true,
@@ -157,14 +174,16 @@ describe("useActionState Integration", () => {
     it("should work with error previous state", async () => {
       let capturedPreviousState: unknown;
 
-      const action = create({
-        useActionState: true,
-      })
-        .action(async ({ metadata }) => {
-          capturedPreviousState = metadata.prevState;
-          return "recovery";
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .handler(async ({ metadata }) => {
+            capturedPreviousState = metadata.prevState;
+            return "recovery";
+          }),
+      );
 
       const errorState = {
         success: false,
@@ -177,41 +196,46 @@ describe("useActionState Integration", () => {
     });
 
     it("should handle complex previous state transitions", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: stringSchema })
-        .errors({
-          transitionError: (from: string, to: string) =>
-            ({
-              type: "TRANSITION_ERROR",
-              from,
-              to,
-              message: `Invalid transition from ${from} to ${to}`,
-            }) as const,
-        })
-        .action(async ({ input, metadata, errors }) => {
-          const currentState = input as string;
-          const previousData = metadata.prevState?.success
-            ? metadata.prevState.data
-            : "initial";
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: stringSchema })
+          .errors({
+            transitionError: (from: string, to: string) =>
+              ({
+                type: "TRANSITION_ERROR",
+                from,
+                to,
+                message: `Invalid transition from ${from} to ${to}`,
+              }) as const,
+          })
+          .handler(async ({ input, metadata, errors }) => {
+            const currentState = input as string;
+            const previousData = metadata.prevState?.success
+              ? metadata.prevState.data
+              : "initial";
 
-          // Simulate state machine logic
-          const validTransitions: Record<string, string[]> = {
-            initial: ["loading", "error"],
-            loading: ["success", "error"],
-            success: ["loading"],
-            error: ["loading", "initial"],
-          };
+            // Simulate state machine logic
+            const validTransitions: Record<string, string[]> = {
+              initial: ["loading", "error"],
+              loading: ["success", "error"],
+              success: ["loading"],
+              error: ["loading", "initial"],
+            };
 
-          const validNext = validTransitions[previousData as string] || [];
-          if (!validNext.includes(currentState)) {
-            return errors.transitionError(previousData as string, currentState);
-          }
+            const validNext = validTransitions[previousData as string] || [];
+            if (!validNext.includes(currentState)) {
+              return errors.transitionError(
+                previousData as string,
+                currentState,
+              );
+            }
 
-          return currentState;
-        })
-        .craft();
+            return currentState;
+          }),
+      );
 
       // Test valid transition
       const loadingState = { success: true, data: "initial" } as const;
@@ -231,16 +255,18 @@ describe("useActionState Integration", () => {
     });
 
     it("should handle undefined/null previous states", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .action(async ({ metadata }) => {
-          return {
-            hasPreviousState: !!metadata.prevState,
-            previousStateType: typeof metadata.prevState,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .handler(async ({ metadata }) => {
+            return {
+              hasPreviousState: !!metadata.prevState,
+              previousStateType: typeof metadata.prevState,
+            };
+          }),
+      );
 
       // @ts-expect-error - Testing undefined
       const undefinedResult = await action(undefined);
@@ -260,18 +286,20 @@ describe("useActionState Integration", () => {
     });
 
     it("should handle malformed previous states gracefully", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .action(async ({ metadata }) => {
-          const state = metadata.prevState;
-          return {
-            isObject: typeof state === "object",
-            hasSuccess: state && "success" in state,
-            successValue: state && "success" in state ? state.success : null,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .handler(async ({ metadata }) => {
+            const state = metadata.prevState;
+            return {
+              isObject: typeof state === "object",
+              hasSuccess: state && "success" in state,
+              successValue: state && "success" in state ? state.success : null,
+            };
+          }),
+      );
 
       const malformedState = { data: "some data" };
       // @ts-expect-error - Test with malformed state (missing success property)
@@ -288,15 +316,17 @@ describe("useActionState Integration", () => {
 
   describe("Progressive enhancement", () => {
     it("should handle FormData input", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .action(async ({ metadata }) => {
-          // Should handle FormData as raw input
-          expect(metadata.rawInput).toBeInstanceOf(FormData);
-          return "form processed";
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .handler(async ({ metadata }) => {
+            // Should handle FormData as raw input
+            expect(metadata.rawInput).toBeInstanceOf(FormData);
+            return "form processed";
+          }),
+      );
 
       const formData = new FormData();
       formData.append("name", "John");
@@ -312,39 +342,42 @@ describe("useActionState Integration", () => {
           name: "John",
           email: "john@example.com",
         },
+        __ac_id: expect.any(String),
       });
     });
 
     it("should validate FormData with schema", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({
-          inputSchema: {
-            "~standard": {
-              version: 1,
-              vendor: "test",
-              validate: (input: unknown) => {
-                if (input instanceof FormData) {
-                  const name = input.get("name");
-                  if (typeof name === "string" && name.length > 0) {
-                    return { value: { name } };
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({
+            inputSchema: {
+              "~standard": {
+                version: 1,
+                vendor: "test",
+                validate: (input: unknown) => {
+                  if (input instanceof FormData) {
+                    const name = input.get("name");
+                    if (typeof name === "string" && name.length > 0) {
+                      return { value: { name } };
+                    }
                   }
-                }
-                return {
-                  issues: [{ message: "Invalid form data", path: [] }],
-                };
+                  return {
+                    issues: [{ message: "Invalid form data", path: [] }],
+                  };
+                },
               },
-            },
-            "~validate": function (input: unknown) {
-              return this["~standard"].validate(input);
-            },
-          } as const,
-        })
-        .action(async ({ input }) => {
-          return `Hello ${(input as { name: string }).name}!`;
-        })
-        .craft();
+              "~validate": function (input: unknown) {
+                return this["~standard"].validate(input);
+              },
+            } as const,
+          })
+          .handler(async ({ input }) => {
+            return `Hello ${(input as { name: string }).name}!`;
+          }),
+      );
 
       const validFormData = new FormData();
       validFormData.append("name", "Alice");
@@ -362,6 +395,7 @@ describe("useActionState Integration", () => {
         values: {
           name: "Alice",
         },
+        __ac_id: expect.any(String),
       });
 
       // Test invalid form data
@@ -373,71 +407,73 @@ describe("useActionState Integration", () => {
     });
 
     it("should handle complex FormData structures", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({
-          inputSchema: {
-            "~standard": {
-              version: 1,
-              vendor: "test",
-              validate: (input: unknown) => {
-                if (input instanceof FormData) {
-                  const data: Record<string, unknown> = {};
-                  const errors: Array<{
-                    message: string;
-                    path: (string | number)[];
-                  }> = [];
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({
+            inputSchema: {
+              "~standard": {
+                version: 1,
+                vendor: "test",
+                validate: (input: unknown) => {
+                  if (input instanceof FormData) {
+                    const data: Record<string, unknown> = {};
+                    const errors: Array<{
+                      message: string;
+                      path: (string | number)[];
+                    }> = [];
 
-                  // Extract and validate multiple fields
-                  const name = input.get("name");
-                  const age = input.get("age");
-                  const tags = input.getAll("tags");
+                    // Extract and validate multiple fields
+                    const name = input.get("name");
+                    const age = input.get("age");
+                    const tags = input.getAll("tags");
 
-                  if (!name || typeof name !== "string") {
-                    errors.push({
-                      message: "Name is required",
-                      path: ["name"],
-                    });
-                  } else {
-                    data.name = name;
+                    if (!name || typeof name !== "string") {
+                      errors.push({
+                        message: "Name is required",
+                        path: ["name"],
+                      });
+                    } else {
+                      data.name = name;
+                    }
+
+                    if (!age || isNaN(Number(age))) {
+                      errors.push({
+                        message: "Valid age is required",
+                        path: ["age"],
+                      });
+                    } else {
+                      data.age = Number(age);
+                    }
+
+                    data.tags = tags.filter((tag) => typeof tag === "string");
+
+                    if (errors.length > 0) {
+                      return { issues: errors };
+                    }
+                    return { value: data };
                   }
-
-                  if (!age || isNaN(Number(age))) {
-                    errors.push({
-                      message: "Valid age is required",
-                      path: ["age"],
-                    });
-                  } else {
-                    data.age = Number(age);
-                  }
-
-                  data.tags = tags.filter((tag) => typeof tag === "string");
-
-                  if (errors.length > 0) {
-                    return { issues: errors };
-                  }
-                  return { value: data };
-                }
-                return {
-                  issues: [{ message: "Must be FormData", path: [] }],
-                };
+                  return {
+                    issues: [{ message: "Must be FormData", path: [] }],
+                  };
+                },
               },
-            },
-            "~validate": function (input: unknown) {
-              return this["~standard"].validate(input);
-            },
-          } as const,
-        })
-        .action(async ({ input }) => {
-          const data = input as { name: string; age: number; tags: string[] };
-          return {
-            message: `Hello ${data.name}, age ${data.age}`,
-            tagCount: data.tags.length,
-            tags: data.tags,
-          };
-        })
-        .craft();
+              "~validate": function (input: unknown) {
+                return this["~standard"].validate(input);
+              },
+            } as const,
+          })
+          .handler(async ({ input }) => {
+            const data = input as { name: string; age: number; tags: string[] };
+            return {
+              message: `Hello ${data.name}, age ${data.age}`,
+              tagCount: data.tags.length,
+              tags: data.tags,
+            };
+          }),
+      );
 
       const formData = new FormData();
       formData.append("name", "Bob");
@@ -458,18 +494,20 @@ describe("useActionState Integration", () => {
     });
 
     it("should handle non-FormData input in useActionState", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: stringSchema })
-        .action(async ({ input, metadata }) => {
-          return {
-            input: input as string,
-            wasFormData: (metadata.rawInput as any) instanceof FormData,
-            rawInputType: typeof metadata.rawInput,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input, metadata }) => {
+            return {
+              input: input as string,
+              wasFormData: (metadata.rawInput as any) instanceof FormData,
+              rawInputType: typeof metadata.rawInput,
+            };
+          }),
+      );
 
       const initialState = initial(action);
       const result = await action(initialState, "regular string input");
@@ -483,19 +521,21 @@ describe("useActionState Integration", () => {
     });
 
     it("should handle empty FormData", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .action(async ({ metadata }) => {
-          const formData = metadata.rawInput as FormData;
-          const entries = Array.from(formData.entries());
-          return {
-            isFormData: metadata.rawInput instanceof FormData,
-            entryCount: entries.length,
-            isEmpty: entries.length === 0,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .handler(async ({ metadata }) => {
+            const formData = metadata.rawInput as FormData;
+            const entries = Array.from(formData.entries());
+            return {
+              isFormData: metadata.rawInput instanceof FormData,
+              entryCount: entries.length,
+              isEmpty: entries.length === 0,
+            };
+          }),
+      );
 
       const emptyFormData = new FormData();
       const initialState = initial(action);
@@ -512,14 +552,16 @@ describe("useActionState Integration", () => {
 
   describe("Error handling with useActionState", () => {
     it("should return error state for validation failures", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: stringSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const initialState = initial(action);
       // @ts-expect-error - Testing invalid input
@@ -532,20 +574,22 @@ describe("useActionState Integration", () => {
     });
 
     it("should return error state for custom errors", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .errors({
-          businessLogicError: (message: string) =>
-            ({
-              type: "BUSINESS_LOGIC_ERROR",
-              message,
-            }) as const,
-        })
-        .action(async ({ errors }) => {
-          return errors.businessLogicError("Invalid business operation");
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .errors({
+            businessLogicError: (message: string) =>
+              ({
+                type: "BUSINESS_LOGIC_ERROR",
+                message,
+              }) as const,
+          })
+          .handler(async ({ errors }) => {
+            return errors.businessLogicError("Invalid business operation");
+          }),
+      );
 
       const initialState = initial(action);
       const result = await action(initialState);
@@ -560,18 +604,20 @@ describe("useActionState Integration", () => {
     });
 
     it("should handle bind args validation errors in useActionState", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          const [multiplier] = bindArgs;
-          return (input as string).repeat(multiplier as number);
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [numberSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            const [multiplier] = bindArgs;
+            return (input as string).repeat(multiplier as number);
+          }),
+      );
 
       const initialState = initial(action);
       // @ts-expect-error - Testing invalid bind args
@@ -584,18 +630,20 @@ describe("useActionState Integration", () => {
     });
 
     it("should handle output validation errors in useActionState", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({
-          inputSchema: stringSchema,
-          outputSchema: numberSchema,
-        })
-        .action(async ({ input }) => {
-          // Return string when number is expected
-          return input; // This will fail output validation
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({
+            inputSchema: stringSchema,
+            outputSchema: numberSchema,
+          })
+          .handler(async ({ input }) => {
+            // Return string when number is expected
+            return input; // This will fail output validation
+          }),
+      );
 
       const initialState = initial(action);
       const result = await action(initialState, "not-a-number");
@@ -607,18 +655,21 @@ describe("useActionState Integration", () => {
     });
 
     it("should handle thrown errors in useActionState", async () => {
-      const action = create({
-        useActionState: true,
-        handleThrownError: (error: unknown) =>
-          ({
-            type: "USEACTIONSTATE_THROWN_ERROR",
-            message: error instanceof Error ? error.message : "Unknown error",
-          }) as const,
-      })
-        .action(async () => {
-          throw new Error("Action threw an error");
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+            handleThrownError: (error: unknown) =>
+              ({
+                type: "USEACTIONSTATE_THROWN_ERROR",
+                message:
+                  error instanceof Error ? error.message : "Unknown error",
+              }) as const,
+          })
+          .handler(async () => {
+            throw new Error("Action threw an error");
+          }),
+      );
 
       const initialState = initial(action);
       const result = await action(initialState);
@@ -633,40 +684,42 @@ describe("useActionState Integration", () => {
     it("should handle error state persistence across calls", async () => {
       let callCount = 0;
 
-      const action = create({
-        useActionState: true,
-      })
-        .errors({
-          persistentError: (attempt: number) =>
-            ({
-              type: "PERSISTENT_ERROR",
-              attempt,
-              message: `Failed attempt ${attempt}`,
-            }) as const,
-        })
-        .action(async ({ metadata, errors }) => {
-          callCount++;
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .errors({
+            persistentError: (attempt: number) =>
+              ({
+                type: "PERSISTENT_ERROR",
+                attempt,
+                message: `Failed attempt ${attempt}`,
+              }) as const,
+          })
+          .handler(async ({ metadata, errors }) => {
+            callCount++;
 
-          // Check if previous state was an error
-          const wasError =
-            metadata.prevState &&
-            !metadata.prevState.success &&
-            metadata.prevState.error.type === "PERSISTENT_ERROR";
+            // Check if previous state was an error
+            const wasError =
+              metadata.prevState &&
+              !metadata.prevState.success &&
+              metadata.prevState.error.type === "PERSISTENT_ERROR";
 
-          if (callCount <= 2) {
-            return errors.persistentError(callCount);
-          }
+            if (callCount <= 2) {
+              return errors.persistentError(callCount);
+            }
 
-          return {
-            finalAttempt: callCount,
-            hadPreviousError: wasError,
-            previousErrorType:
-              wasError && metadata.prevState && !metadata.prevState.success
-                ? metadata.prevState.error.type
-                : null,
-          };
-        })
-        .craft();
+            return {
+              finalAttempt: callCount,
+              hadPreviousError: wasError,
+              previousErrorType:
+                wasError && metadata.prevState && !metadata.prevState.success
+                  ? metadata.prevState.error.type
+                  : null,
+            };
+          }),
+      );
 
       const initialState = initial(action);
 
@@ -693,18 +746,20 @@ describe("useActionState Integration", () => {
     it("should execute callbacks with previous state in metadata", async () => {
       let callbackMetadata: unknown;
 
-      const action = create({
-        useActionState: true,
-      })
-        .action(async () => {
-          return "success";
-        })
-        .callbacks({
-          onSuccess: ({ metadata }) => {
-            callbackMetadata = metadata;
-          },
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .handler(async () => {
+            return "success";
+          })
+          .callbacks({
+            onSuccess: ({ metadata }) => {
+              callbackMetadata = metadata;
+            },
+          }),
+      );
 
       const previousState = {
         success: false,
@@ -723,26 +778,28 @@ describe("useActionState Integration", () => {
     it("should execute callbacks with bind args in useActionState", async () => {
       let capturedCallbackData: unknown;
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          const [multiplier] = bindArgs;
-          return (input as string).repeat(multiplier as number);
-        })
-        .callbacks({
-          onSuccess: ({ data, metadata }) => {
-            capturedCallbackData = {
-              result: data,
-              hasPreviousState: !!metadata.prevState,
-            };
-          },
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [numberSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            const [multiplier] = bindArgs;
+            return (input as string).repeat(multiplier as number);
+          })
+          .callbacks({
+            onSuccess: ({ data, metadata }) => {
+              capturedCallbackData = {
+                result: data,
+                hasPreviousState: !!metadata.prevState,
+              };
+            },
+          }),
+      );
 
       const initialState = initial(action);
       await action(2, initialState, "Hi");
@@ -756,30 +813,32 @@ describe("useActionState Integration", () => {
     it("should execute error callbacks with useActionState", async () => {
       let errorCallbackData: unknown;
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: stringSchema })
-        .errors({
-          testError: (message: string) =>
-            ({
-              type: "TEST_ERROR",
-              message,
-            }) as const,
-        })
-        .action(async ({ errors }) => {
-          return errors.testError("Test error message");
-        })
-        .callbacks({
-          onError: ({ error, metadata }) => {
-            errorCallbackData = {
-              errorType: error.type,
-              errorMessage: "message" in error ? error.message : undefined,
-              hasPreviousState: !!metadata.prevState,
-            };
-          },
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: stringSchema })
+          .errors({
+            testError: (message: string) =>
+              ({
+                type: "TEST_ERROR",
+                message,
+              }) as const,
+          })
+          .handler(async ({ errors }) => {
+            return errors.testError("Test error message");
+          })
+          .callbacks({
+            onError: ({ error, metadata }) => {
+              errorCallbackData = {
+                errorType: error.type,
+                errorMessage: "message" in error ? error.message : undefined,
+                hasPreviousState: !!metadata.prevState,
+              };
+            },
+          }),
+      );
 
       const previousState = { success: true, data: "previous" } as const;
       await action(previousState as any, "trigger-error");
@@ -794,25 +853,27 @@ describe("useActionState Integration", () => {
     it("should execute onSettled callbacks with useActionState", async () => {
       const settledCallbacks: unknown[] = [];
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: stringSchema })
-        .action(async ({ input }) => {
-          if (input === "error") {
-            throw new Error("Test error");
-          }
-          return input;
-        })
-        .callbacks({
-          onSettled: ({ result, metadata }) => {
-            settledCallbacks.push({
-              success: result.success,
-              hasPreviousState: !!metadata.prevState,
-            });
-          },
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input }) => {
+            if (input === "error") {
+              throw new Error("Test error");
+            }
+            return input;
+          })
+          .callbacks({
+            onSettled: ({ result, metadata }) => {
+              settledCallbacks.push({
+                success: result.success,
+                hasPreviousState: !!metadata.prevState,
+              });
+            },
+          }),
+      );
 
       const initialState = initial(action);
 
@@ -838,14 +899,16 @@ describe("useActionState Integration", () => {
     it("should enforce api result format for useActionState", async () => {
       // This test verifies that the type system enforces api format
       // The action should only return ApiResult when useActionState is true
-      const action = create({
-        useActionState: true,
-        // resultFormat is forced to be "api"
-      })
-        .action(async () => {
-          return "test";
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+            // resultFormat is forced to be "api"
+          })
+          .handler(async () => {
+            return "test";
+          }),
+      );
 
       const initialState = initial(action);
       const result = await action(initialState);
@@ -860,24 +923,28 @@ describe("useActionState Integration", () => {
     });
 
     it("should maintain type consistency across state transitions", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: stringSchema })
-        .action(async ({ input, metadata }) => {
-          const currentInput = input as string;
-          const previousResult = metadata.prevState;
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input, metadata }) => {
+            const currentInput = input as string;
+            const previousResult = metadata.prevState;
 
-          return {
-            currentInput,
-            previousWasSuccess: previousResult?.success === true,
-            previousData: previousResult?.success ? previousResult.data : null,
-            previousError: !previousResult?.success
-              ? previousResult?.error
-              : null,
-          };
-        })
-        .craft();
+            return {
+              currentInput,
+              previousWasSuccess: previousResult?.success === true,
+              previousData: previousResult?.success
+                ? previousResult.data
+                : null,
+              previousError: !previousResult?.success
+                ? previousResult?.error
+                : null,
+            };
+          }),
+      );
 
       const initialState = initial(action);
 
@@ -926,25 +993,27 @@ describe("useActionState Integration", () => {
         },
       } as const;
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema, complexSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          const [count, obj] = bindArgs;
-          return {
-            input: input as string,
-            count: count as number,
-            obj: obj as { id: unknown; name: unknown },
-            combined: `${input as string}-${count}-${
-              (obj as { name: unknown }).name
-            }`,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [numberSchema, complexSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            const [count, obj] = bindArgs;
+            return {
+              input: input as string,
+              count: count as number,
+              obj: obj as { id: unknown; name: unknown },
+              combined: `${input as string}-${count}-${
+                (obj as { name: unknown }).name
+              }`,
+            };
+          }),
+      );
 
       const initialState = initial(action);
       const complexObj = { id: "123", name: "test" };

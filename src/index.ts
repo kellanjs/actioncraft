@@ -3,9 +3,10 @@
 // ============================================================================
 
 // Core Functions
-export { create, initial } from "./actioncraft.js";
-export { unwrap, throwable } from "./utils.js";
-export { ActionCraftError, isActionCraftError } from "./error.js";
+export { craft } from "./classes/craft-builder.js";
+export { action } from "./classes/action-builder.js";
+export { unwrap, throwable, initial, getActionId } from "./utils.js";
+export { ActioncraftError, isActioncraftError } from "./classes/error.js";
 
 // Result API (for functional format)
 export type { Result, Ok, Err } from "./types/result.js";

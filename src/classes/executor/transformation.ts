@@ -1,9 +1,12 @@
-import type { InferSerializedErrorValues } from "../types/actions.js";
-import type { CrafterSchemas } from "../types/config.js";
-import type { CrafterConfig, CrafterErrors } from "../types/config.js";
-import type { PossibleErrors, AllPossibleErrors } from "../types/errors.js";
-import { INTERNAL_ERROR_TYPES } from "../types/errors.js";
-import type { InferRawInput, InferValidatedInput } from "../types/schemas.js";
+import type { InferSerializedErrorValues } from "../../types/actions.js";
+import type { Schemas } from "../../types/builder.js";
+import type { Config, Errors } from "../../types/builder.js";
+import type { PossibleErrors, AllPossibleErrors } from "../../types/errors.js";
+import { INTERNAL_ERROR_TYPES } from "../../types/errors.js";
+import type {
+  InferRawInput,
+  InferValidatedInput,
+} from "../../types/schemas.js";
 import { UNHANDLED_ERROR } from "./errors.js";
 
 /**
@@ -12,7 +15,7 @@ import { UNHANDLED_ERROR } from "./errors.js";
  * If the input is `FormData`, it is flattened into a plain object so that it can
  * be safely JSON-serialized. Otherwise, the input is returned as-is.
  */
-export function serializeRawInput<TSchemas extends CrafterSchemas>(
+export function serializeRawInput<TSchemas extends Schemas>(
   input: InferRawInput<TSchemas> | InferValidatedInput<TSchemas> | undefined,
 ): InferSerializedErrorValues<TSchemas> {
   if (input instanceof FormData) {
@@ -47,9 +50,9 @@ export function serializeRawInput<TSchemas extends CrafterSchemas>(
  * implementation details that should not leak outside the server.
  */
 export function convertToClientError<
-  TErrors extends CrafterErrors,
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
+  TErrors extends Errors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
 >(
   internalError: AllPossibleErrors<TErrors, TConfig, TSchemas>,
 ): PossibleErrors<TErrors, TConfig, TSchemas> {

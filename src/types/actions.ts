@@ -1,9 +1,11 @@
 import type { StandardSchemaV1 } from "../standard-schema.js";
-import type { CrafterConfig, CrafterSchemas, CrafterErrors } from "./config.js";
+import type { Config, Schemas, Errors } from "./builder.js";
 import type {
   ErrorFunctions,
   InferUserDefinedErrorTypes,
   PossibleErrors,
+  InferInputValidationErrorFormat,
+  NoInputSchemaError,
 } from "./errors.js";
 import type { Result, Ok, Err } from "./result.js";
 import type {
@@ -11,21 +13,22 @@ import type {
   InferRawBindArgs,
   InferValidatedBindArgs,
   InferRawInputTuple,
+  InferRawInput,
 } from "./schemas.js";
 import type {
   ApiResult,
-  ActionImplMetadata,
+  HandlerMetadata,
   StatefulApiResult,
 } from "./shared.js";
 
 // ============================================================================
-// ACTION IMPLEMENTATION
+// HANDLER (server action logic)
 // ============================================================================
 
 /**
- * Extracts the success data type from an action implementation function.
+ * Extracts the success data type from a handler function.
  */
-export type InferDataFromActionImpl<TFn> = TFn extends (
+export type InferDataFromHandler<TFn> = TFn extends (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ...args: any[]
 ) => // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,12 +43,12 @@ any
   : never;
 
 /**
- * Parameters passed to action implementation functions.
+ * Parameters passed to handler functions.
  */
-export type ActionImplParams<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+export type HandlerParams<
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = {
   /** Validated input data after schema validation */
@@ -54,34 +57,34 @@ export type ActionImplParams<
   bindArgs: InferValidatedBindArgs<TSchemas>;
   /** Helper functions for returning typed errors */
   errors: ErrorFunctions<TErrors>;
-  /** Action metadata for debugging and logging */
-  metadata: ActionImplMetadata<TConfig, TSchemas, TErrors, TData>;
+  /** Handler metadata for debugging and logging */
+  metadata: HandlerMetadata<TConfig, TSchemas, TErrors, TData>;
 };
 
 /**
- * Action implementation function signature.
+ * Handler function signature.
  * Can return ok(data), errors.yourError(), raw data, or null.
  * Returning undefined is treated as an error.
  */
-export type ActionImpl<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+export type Handler<
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = (
-  params: ActionImplParams<TConfig, TSchemas, TErrors, TData>,
+  params: HandlerParams<TConfig, TSchemas, TErrors, TData>,
 ) => Promise<
   Result<TData, InferUserDefinedErrorTypes<TErrors>> | TData | undefined
 >;
 
 /**
- * Arguments that the action implementation accepts.
+ * Arguments that the handler accepts.
  * Differs based on useActionState configuration.
  */
-export type InferActionImplArgs<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+export type InferHandlerArgs<
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = TConfig extends { useActionState: true }
   ? StatefulActionArgs<TConfig, TSchemas, TErrors, TData>
@@ -95,9 +98,9 @@ export type InferActionImplArgs<
  * Action compatible with React's useActionState hook.
  */
 export type StatefulAction<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = (
   ...args: StatefulActionArgs<TConfig, TSchemas, TErrors, TData>
@@ -107,9 +110,9 @@ export type StatefulAction<
  * Arguments for stateful actions: bind args, previous state, then input.
  */
 export type StatefulActionArgs<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = [
   ...InferRawBindArgs<TSchemas>,
@@ -121,9 +124,9 @@ export type StatefulActionArgs<
  * Previous state parameter for useActionState.
  */
 export type InferPrevStateArg<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = TConfig extends {
   useActionState: true;
@@ -185,7 +188,7 @@ type _ValuesWithFallback<T> = {
 /**
  * Form values available when an action succeeds.
  */
-export type InferSerializedSuccessValues<TSchemas extends CrafterSchemas> =
+export type InferSerializedSuccessValues<TSchemas extends Schemas> =
   TSchemas extends { inputSchema: StandardSchemaV1 }
     ? StandardSchemaV1.InferOutput<TSchemas["inputSchema"]> extends Record<
         string,
@@ -203,7 +206,7 @@ export type InferSerializedSuccessValues<TSchemas extends CrafterSchemas> =
 /**
  * Form values available when an action fails.
  */
-export type InferSerializedErrorValues<TSchemas extends CrafterSchemas> =
+export type InferSerializedErrorValues<TSchemas extends Schemas> =
   TSchemas extends {
     inputSchema: StandardSchemaV1;
   }
@@ -223,9 +226,9 @@ export type InferSerializedErrorValues<TSchemas extends CrafterSchemas> =
  * Regular server action that doesn't use useActionState.
  */
 export type StatelessAction<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = (
   ...args: StatelessActionArgs<TSchemas>
@@ -234,7 +237,7 @@ export type StatelessAction<
 /**
  * Arguments for stateless actions: bind args followed by input.
  */
-export type StatelessActionArgs<TSchemas extends CrafterSchemas> = [
+export type StatelessActionArgs<TSchemas extends Schemas> = [
   ...InferRawBindArgs<TSchemas>,
   ...InferRawInputTuple<TSchemas>,
 ];
@@ -244,24 +247,75 @@ export type StatelessActionArgs<TSchemas extends CrafterSchemas> = [
 // ============================================================================
 
 /**
- * Final action function returned by .craft().
+ * Type inference utilities available on crafted actions.
+ */
+export type CraftedActionInfer<
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
+  TData,
+> = {
+  /** The raw input type expected by this action */
+  Input: InferRawInput<TSchemas>;
+  /** The success data type returned by this action's handler */
+  Data: TData;
+  /** The complete result type returned when calling this action */
+  Result: InferCraftedActionResult<TConfig, TSchemas, TErrors, TData>;
+  /** The possible error types that can be returned by this action */
+  Errors: PossibleErrors<TErrors, TConfig, TSchemas>;
+};
+
+/**
+ * Schema validation result for the $validate method.
+ */
+export type ValidationResult<
+  TConfig extends Config,
+  TSchemas extends Schemas,
+> = TSchemas extends { inputSchema: unknown }
+  ?
+      | { success: true; data: InferValidatedInput<TSchemas> }
+      | { success: false; error: InferInputValidationErrorFormat<TConfig> }
+  : {
+      success: false;
+      error: NoInputSchemaError;
+    };
+
+/**
+ * The fully-typed server action function returned by the `craft()` method.
  */
 export type CraftedAction<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
-> = TConfig extends { useActionState: true }
+> = (TConfig extends { useActionState: true }
   ? StatefulAction<TConfig, TSchemas, TErrors, TData>
-  : StatelessAction<TConfig, TSchemas, TErrors, TData>;
+  : StatelessAction<TConfig, TSchemas, TErrors, TData>) & {
+  /**
+   * Type inference utilities for extracting types from this action.
+   * Use with `typeof action.$Infer.Input` etc.
+   */
+  $Infer: CraftedActionInfer<TConfig, TSchemas, TErrors, TData>;
+
+  /**
+   * Validates input data against this action's input schema without executing the action.
+   * Returns a result object indicating success/failure with typed data or errors.
+   *
+   * @param input - The input data to validate
+   * @returns Promise resolving to validation result with success flag and data/error
+   */
+  $validate(
+    input: InferRawInput<TSchemas>,
+  ): Promise<ValidationResult<TConfig, TSchemas>>;
+};
 
 /**
  * Result returned when calling a crafted action.
  */
 export type InferCraftedActionResult<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = TConfig extends { useActionState: true }
   ? StatefulApiResult<

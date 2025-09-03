@@ -1,18 +1,19 @@
-import { create } from "../../src/actioncraft";
+import { craft } from "../../src/index";
 import { describe, it, expect, vi } from "vitest";
 
 describe("Logger Configuration", () => {
   it("should be silent by default", async () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const action = create()
-      .callbacks({
-        onSuccess: () => {
-          throw new Error("Callback error");
-        },
-      })
-      .action(async () => "success")
-      .craft();
+    const action = craft((action) =>
+      action
+        .handler(async () => "success")
+        .callbacks({
+          onSuccess: () => {
+            throw new Error("Callback error");
+          },
+        }),
+    );
 
     await action();
 
@@ -28,12 +29,16 @@ describe("Logger Configuration", () => {
     };
 
     // First, let's verify the logger config is accepted without errors
-    const action = create({ logger: mockLogger })
-      .action(async () => "success")
-      .craft();
+    const action = craft((action) =>
+      action.config({ logger: mockLogger }).handler(async () => "success"),
+    );
 
     const result = await action();
-    expect(result).toEqual({ success: true, data: "success" });
+    expect(result).toEqual({
+      success: true,
+      data: "success",
+      __ac_id: expect.any(String),
+    });
 
     // The logger should be configured but not called for successful operations
     expect(mockLogger.error).not.toHaveBeenCalled();
@@ -43,13 +48,17 @@ describe("Logger Configuration", () => {
   it("should handle logger with missing methods gracefully", async () => {
     const mockLogger = {}; // Empty logger
 
-    const action = create({ logger: mockLogger })
-      .action(async () => "success")
-      .craft();
+    const action = craft((action) =>
+      action.config({ logger: mockLogger }).handler(async () => "success"),
+    );
 
     // Should not throw and should work normally
     const result = await action();
-    expect(result).toEqual({ success: true, data: "success" });
+    expect(result).toEqual({
+      success: true,
+      data: "success",
+      __ac_id: expect.any(String),
+    });
   });
 
   it("should log error handling failures", async () => {
@@ -58,16 +67,18 @@ describe("Logger Configuration", () => {
       warn: vi.fn(),
     };
 
-    const action = create({
-      logger: mockLogger,
-      handleThrownError: () => {
-        throw new Error("Error handler also throws");
-      },
-    })
-      .action(async () => {
-        throw new Error("Primary error");
-      })
-      .craft();
+    const action = craft((action) =>
+      action
+        .config({
+          logger: mockLogger,
+          handleThrownError: () => {
+            throw new Error("Error handler also throws");
+          },
+        })
+        .handler(async () => {
+          throw new Error("Primary error");
+        }),
+    );
 
     await action();
 
@@ -86,13 +97,17 @@ describe("Logger Configuration", () => {
       warn: undefined,
     };
 
-    const action = create({ logger: mockLogger })
-      .action(async () => "success")
-      .craft();
+    const action = craft((action) =>
+      action.config({ logger: mockLogger }).handler(async () => "success"),
+    );
 
     // Should not throw and should not attempt to call undefined methods
     const result = await action();
-    expect(result).toEqual({ success: true, data: "success" });
+    expect(result).toEqual({
+      success: true,
+      data: "success",
+      __ac_id: expect.any(String),
+    });
   });
 
   it("should accept logger configuration in type system", () => {
@@ -106,13 +121,15 @@ describe("Logger Configuration", () => {
       },
     };
 
-    const action = create({
-      logger,
-      resultFormat: "api" as const,
-      validationErrorFormat: "flattened" as const,
-    })
-      .action(async () => "success")
-      .craft();
+    const action = craft((action) =>
+      action
+        .config({
+          logger,
+          resultFormat: "api" as const,
+          validationErrorFormat: "flattened" as const,
+        })
+        .handler(async () => "success"),
+    );
 
     expect(action).toBeDefined();
     expect(typeof action).toBe("function");
@@ -121,14 +138,16 @@ describe("Logger Configuration", () => {
   it("should log callback errors via logger.error", async () => {
     const mockLogger = { error: vi.fn(), warn: vi.fn() };
 
-    const action = create({ logger: mockLogger })
-      .action(async () => "success")
-      .callbacks({
-        onSuccess: () => {
-          throw new Error("Callback failure");
-        },
-      })
-      .craft();
+    const action = craft((action) =>
+      action
+        .config({ logger: mockLogger })
+        .handler(async () => "success")
+        .callbacks({
+          onSuccess: () => {
+            throw new Error("Callback failure");
+          },
+        }),
+    );
 
     await action();
 

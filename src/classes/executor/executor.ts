@@ -1,204 +1,136 @@
-import { safeExecuteCallback } from "./core/callbacks.js";
-import {
-  createUnhandledErrorResult,
-  createImplicitReturnErrorResult,
-} from "./core/errors.js";
-import { log } from "./core/logging.js";
-import {
-  serializeRawInput,
-  convertToClientError,
-} from "./core/transformation.js";
-import {
-  validateInput,
-  validateBindArgs,
-  validateOutput,
-} from "./core/validation.js";
 import type {
   InferPrevStateArg,
-  ActionImpl,
+  Handler,
   CraftedAction,
   InferCraftedActionResult,
-  InferDataFromActionImpl,
-  ActionImplParams,
-  InferActionImplArgs,
+  InferHandlerArgs,
   InferSerializedSuccessValues,
-} from "./types/actions.js";
+  ValidationResult,
+} from "../../types/actions.js";
 import type {
-  CrafterConfig,
-  CrafterSchemas,
-  CrafterErrors,
-  CrafterCallbacks,
-} from "./types/config.js";
+  Config,
+  Schemas,
+  Errors,
+  Callbacks,
+} from "../../types/builder.js";
 import {
   type PossibleErrors,
   type AllPossibleErrors,
   type ErrorFunctions,
-  EXTERNAL_ERROR_TYPES,
-} from "./types/errors.js";
-import type { InferResult } from "./types/inference.js";
-import type { Result } from "./types/result.js";
-import { err, isOk, isResultOk, isResultErr, isErr } from "./types/result.js";
+} from "../../types/errors.js";
+import type { Result } from "../../types/result.js";
+import {
+  err,
+  isOk,
+  isResultOk,
+  isResultErr,
+  isErr,
+} from "../../types/result.js";
 import type {
   InferValidatedInput,
   InferValidatedBindArgs,
   InferRawBindArgs,
   InferRawInput,
-} from "./types/schemas.js";
-import type { CallbackMetadata } from "./types/shared.js";
+} from "../../types/schemas.js";
+import type { CallbackMetadata } from "../../types/shared.js";
+import type { CraftBuilder } from "../craft-builder.js";
+import { INTERNAL } from "../internal.js";
+import { safeExecuteCallback } from "./callbacks.js";
+import {
+  createUnhandledErrorResult,
+  createImplicitReturnErrorResult,
+  NO_INPUT_SCHEMA_ERROR,
+} from "./errors.js";
+import { log } from "./logging.js";
+import { serializeRawInput, convertToClientError } from "./transformation.js";
+import {
+  validateInput,
+  validateBindArgs,
+  validateOutput,
+} from "./validation.js";
 import { unstable_rethrow } from "next/navigation.js";
 
 // ============================================================================
-// CRAFTER CLASS - TYPE-SAFE ACTION BUILDER
+// EXECUTOR CLASS - Build and execute your action
 // ============================================================================
 
-/**
- * Builder class for creating type-safe server actions with validation, error handling, and callbacks.
- */
-class Crafter<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
-  TCallbacks extends CrafterCallbacks<TConfig, TSchemas, TErrors, TData>,
+export class Executor<
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
+  TCallbacks extends Callbacks<TConfig, TSchemas, TErrors, TData>,
   TData,
 > {
   private readonly _config: TConfig;
   private readonly _schemas: TSchemas;
   private readonly _errors: TErrors;
   private readonly _callbacks: TCallbacks;
-  private readonly _actionImpl?: ActionImpl<TConfig, TSchemas, TErrors, TData>;
+  private readonly _handler?: Handler<TConfig, TSchemas, TErrors, TData>;
+  private _actionId?: string;
 
   constructor(
-    config: TConfig,
-    schemas: TSchemas,
-    errors: TErrors,
-    callbacks: TCallbacks,
-    actionImpl?: ActionImpl<TConfig, TSchemas, TErrors, TData>,
+    builder: CraftBuilder<TConfig, TSchemas, TErrors, TCallbacks, TData>,
   ) {
-    this._config = config;
-    this._schemas = schemas;
-    this._errors = errors;
-    this._callbacks = callbacks;
-    this._actionImpl = actionImpl;
-  }
-
-  // --------------------------------------------------------------------------
-  // FLUENT API METHODS
-  // --------------------------------------------------------------------------
-
-  /**
-   * Defines validation schemas for input, output, and bind arguments.
-   * Resets previously defined actions and callbacks.
-   */
-  schemas<TNewSchemas extends CrafterSchemas>(
-    schemas: TNewSchemas,
-  ): Crafter<TConfig, TNewSchemas, TErrors, Record<string, never>, unknown> {
-    return new Crafter(
-      this._config,
-      schemas,
-      this._errors,
-      {} as Record<string, never>,
-      undefined,
-    );
+    this._config = builder[INTERNAL]().config;
+    this._schemas = builder[INTERNAL]().schemas;
+    this._errors = builder[INTERNAL]().errors;
+    this._callbacks = builder[INTERNAL]().callbacks;
+    this._handler = builder[INTERNAL]().handler;
   }
 
   /**
-   * Defines error functions for returning typed errors from actions.
-   * Resets previously defined actions and callbacks.
-   */
-  errors<const TNewErrors extends CrafterErrors>(
-    errors: TNewErrors,
-  ): Crafter<TConfig, TSchemas, TNewErrors, Record<string, never>, unknown> {
-    return new Crafter(
-      this._config,
-      this._schemas,
-      errors,
-      {} as Record<string, never>,
-      undefined,
-    );
-  }
-
-  /**
-   * Defines the action implementation function containing business logic.
-   * Resets previously defined callbacks.
-   */
-  action<
-    TFn extends (
-      params: ActionImplParams<TConfig, TSchemas, TErrors, TData>,
-    ) => Promise<unknown>,
-  >(
-    fn: TFn,
-  ): Crafter<
-    TConfig,
-    TSchemas,
-    TErrors,
-    Record<string, never>,
-    InferDataFromActionImpl<TFn>
-  > {
-    return new Crafter(
-      this._config,
-      this._schemas,
-      this._errors,
-      {} as Record<string, never>,
-      fn as ActionImpl<
-        TConfig,
-        TSchemas,
-        TErrors,
-        InferDataFromActionImpl<TFn>
-      >,
-    );
-  }
-
-  /**
-   * Defines lifecycle callbacks for action execution.
-   * Must be called after action() for correct type inference.
-   */
-  callbacks<
-    TNewCallbacks extends CrafterCallbacks<TConfig, TSchemas, TErrors, TData>,
-  >(
-    callbacks: TNewCallbacks,
-  ): Crafter<TConfig, TSchemas, TErrors, TNewCallbacks, TData> {
-    return new Crafter(
-      this._config,
-      this._schemas,
-      this._errors,
-      callbacks,
-      this._actionImpl,
-    );
-  }
-
-  /**
-   * Builds and returns the final executable action function.
+   * Builds and returns the final executable server action.
    */
   craft(): CraftedAction<TConfig, TSchemas, TErrors, TData> {
-    if (!this._actionImpl) {
-      throw new Error(
-        "Action implementation is not defined. Call .action() before calling .craft().",
-      );
+    if (!this._handler) {
+      throw new Error("A handler implementation is required");
     }
 
+    // Generate a unique ID for this action instance
+    this._actionId = this._generateActionId();
+
     const craftedAction = (
-      ...args: InferActionImplArgs<TConfig, TSchemas, TErrors, TData>
+      ...args: InferHandlerArgs<TConfig, TSchemas, TErrors, TData>
     ): Promise<InferCraftedActionResult<TConfig, TSchemas, TErrors, TData>> => {
       return this._runAction(args);
     };
 
-    // Attach the action's config for runtime inspection (used by `initial()`)
+    // Attach $validate method to the action for simple client-side validation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (craftedAction as any).$validate = async (input: any) => {
+      return this._validateInputOnly(input);
+    };
+
+    // Attach the action's config and ID for runtime inspection
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (craftedAction as any).__ac_config = this._config;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (craftedAction as any).__ac_id = this._actionId;
 
     return craftedAction as CraftedAction<TConfig, TSchemas, TErrors, TData>;
+  }
+
+  /**
+   * Generates a unique identifier for this action instance.
+   */
+  private _generateActionId(): string {
+    return crypto.randomUUID();
   }
 
   // --------------------------------------------------------------------------
   // ACTION EXECUTION
   // --------------------------------------------------------------------------
 
-  /** Orchestrates action execution including validation, business logic, callbacks, and result formatting. */
+  /**
+   * Orchestrates action execution (validation, business logic, callbacks, and result formatting.)
+   */
   private async _runAction(
-    args: InferActionImplArgs<TConfig, TSchemas, TErrors, TData>,
+    args: InferHandlerArgs<TConfig, TSchemas, TErrors, TData>,
   ): Promise<InferCraftedActionResult<TConfig, TSchemas, TErrors, TData>> {
-    // We know this exists because craft() verifies it
-    const actionImpl = this._actionImpl!;
+    // We know these exist because craft() creates/verifies them
+    const handler = this._handler!;
+    const actionId = this._actionId!;
+    const actionName = this._config.actionName;
 
     // Extract bindArgs, prevState, and input from the raw args
     const {
@@ -209,17 +141,9 @@ class Crafter<
 
     // Check for custom error handler
     const handleThrownErrorFn = this._config.handleThrownError
-      ? (error: unknown) => err(this._config.handleThrownError!(error))
+      ? (error: unknown) =>
+          err(this._config.handleThrownError!(error), actionId)
       : null;
-
-    // Execute onStart callback before any processing
-    await this._executeOnStartCallback({
-      rawInput,
-      rawBindArgs,
-      prevState,
-      validatedInput: undefined,
-      validatedBindArgs: undefined,
-    });
 
     // Track validation state for error handling
     let validatedInput: InferValidatedInput<TSchemas> | undefined = undefined;
@@ -227,10 +151,23 @@ class Crafter<
       undefined;
 
     try {
+      // Execute onStart callback before any processing
+      await this._executeOnStartCallback({
+        actionId,
+        actionName,
+        rawInput,
+        rawBindArgs,
+        prevState,
+        validatedInput: undefined,
+        validatedBindArgs: undefined,
+      });
+
       // Validate input and return on failure
       const inputValidation = await this._validateInput(rawInput);
       if (!isOk(inputValidation)) {
         await this._executeResultCallbacks(inputValidation, {
+          actionId,
+          actionName,
           rawInput,
           rawBindArgs,
           prevState,
@@ -247,6 +184,8 @@ class Crafter<
       const bindArgsValidation = await this._validateBindArgs(rawBindArgs);
       if (!isOk(bindArgsValidation)) {
         await this._executeResultCallbacks(bindArgsValidation, {
+          actionId,
+          actionName,
           rawInput,
           rawBindArgs,
           prevState,
@@ -259,18 +198,29 @@ class Crafter<
       // Update validation state
       validatedBindArgs = bindArgsValidation.value;
 
-      // Execute the user's action implementation
-      const actionImplResult = await actionImpl({
+      // Execute the user's action handler
+      const handlerResult = await handler({
         input: inputValidation.value,
         bindArgs: bindArgsValidation.value,
         errors: this._buildErrorFunctions(),
-        metadata: { rawInput, rawBindArgs, prevState },
+        metadata: {
+          actionId,
+          actionName,
+          rawInput,
+          rawBindArgs,
+          prevState,
+        },
       });
 
       // Return on `undefined` (implicit return error)
-      if (actionImplResult === undefined) {
-        const implicitReturnError = createImplicitReturnErrorResult();
+      if (handlerResult === undefined) {
+        const implicitReturnError = createImplicitReturnErrorResult(
+          actionId,
+          actionName,
+        );
         await this._executeResultCallbacks(implicitReturnError, {
+          actionId,
+          actionName,
           rawInput,
           rawBindArgs,
           prevState,
@@ -286,17 +236,20 @@ class Crafter<
       >;
 
       // Process different return types from the action
-      if (isResultErr(actionImplResult)) {
-        finalResult = actionImplResult;
+      if (isResultErr(handlerResult)) {
+        // Ensure error result has correct action ID
+        finalResult = this._ensureResultActionId(handlerResult);
       } else {
-        const outputData = isResultOk(actionImplResult)
-          ? actionImplResult.value
-          : actionImplResult;
+        const outputData = isResultOk(handlerResult)
+          ? handlerResult.value
+          : handlerResult;
         finalResult = await this._validateOutput(outputData);
       }
 
       // Execute callbacks and return final result
       await this._executeResultCallbacks(finalResult, {
+        actionId,
+        actionName,
         rawInput,
         rawBindArgs,
         prevState,
@@ -320,6 +273,8 @@ class Crafter<
       try {
         const errorResult = this._handleThrownError(error, handleThrownErrorFn);
         await this._executeResultCallbacks(errorResult, {
+          actionId,
+          actionName,
           rawInput,
           rawBindArgs,
           prevState,
@@ -335,7 +290,10 @@ class Crafter<
           "Error handling failure - both primary error and error handler threw",
           { primaryError: error, handlerError },
         );
-        return this._toActionResult(createUnhandledErrorResult(), rawInput);
+        return this._toActionResult(
+          createUnhandledErrorResult(actionId, actionName),
+          rawInput,
+        );
       }
     }
   }
@@ -344,7 +302,7 @@ class Crafter<
    * Extracts bind arguments, previous state, and input from raw action arguments.
    */
   private _extractActionArgs(
-    args: InferActionImplArgs<TConfig, TSchemas, TErrors, TData>,
+    args: InferHandlerArgs<TConfig, TSchemas, TErrors, TData>,
   ): {
     bindArgs: InferRawBindArgs<TSchemas>;
     prevState: InferPrevStateArg<TConfig, TSchemas, TErrors, TData>;
@@ -365,6 +323,8 @@ class Crafter<
       };
     }
 
+    // For regular actions (non-useActionState), the input is the first argument after bind args
+    // If there are no bind schemas, the input is the first argument (args[0])
     return {
       bindArgs: args.slice(0, numBindSchemas) as InferRawBindArgs<TSchemas>,
       // When useActionState is disabled the prevState parameter is never
@@ -394,7 +354,9 @@ class Crafter<
     const clientResult: Result<
       TData,
       PossibleErrors<TErrors, TConfig, TSchemas>
-    > = isOk(result) ? result : err(convertToClientError(result.error));
+    > = isOk(result)
+      ? result
+      : err(convertToClientError(result.error), this._actionId!);
 
     // Handle useActionState format (always returns StatefulApiResult)
     if (this._config.useActionState) {
@@ -407,12 +369,14 @@ class Crafter<
           success: true,
           data: clientResult.value,
           values: successValues,
+          __ac_id: this._actionId!,
         } as InferCraftedActionResult<TConfig, TSchemas, TErrors, TData>;
       }
       return {
         success: false,
         error: clientResult.error,
         values: serializeRawInput(inputForValues),
+        __ac_id: this._actionId!,
       } as InferCraftedActionResult<TConfig, TSchemas, TErrors, TData>;
     }
 
@@ -433,11 +397,13 @@ class Crafter<
       return {
         success: true,
         data: clientResult.value,
+        __ac_id: this._actionId!,
       } as InferCraftedActionResult<TConfig, TSchemas, TErrors, TData>;
     }
     return {
       success: false,
       error: clientResult.error,
+      __ac_id: this._actionId!,
     } as InferCraftedActionResult<TConfig, TSchemas, TErrors, TData>;
   }
 
@@ -454,7 +420,7 @@ class Crafter<
   ): Result<never, AllPossibleErrors<TErrors, TConfig, TSchemas>> {
     const caughtErrorResult = customHandler
       ? customHandler(error)
-      : createUnhandledErrorResult();
+      : createUnhandledErrorResult(this._actionId!, this._config.actionName);
 
     return caughtErrorResult as Result<
       never,
@@ -474,6 +440,8 @@ class Crafter<
       this._schemas,
       this._config,
       rawInput,
+      this._actionId!,
+      this._config.actionName,
     );
   }
 
@@ -485,6 +453,8 @@ class Crafter<
       this._schemas,
       this._config,
       bindArgs,
+      this._actionId!,
+      this._config.actionName,
     );
   }
 
@@ -496,7 +466,40 @@ class Crafter<
       this._schemas,
       this._config,
       data,
+      this._actionId!,
+      this._config.actionName,
     );
+  }
+
+  /**
+   * Validates input data only (used by the $validate method).
+   */
+  private async _validateInputOnly(
+    input: InferRawInput<TSchemas>,
+  ): Promise<ValidationResult<TConfig, TSchemas>> {
+    // If no input schema, return error indicating validation cannot be performed
+    if (!this._schemas.inputSchema) {
+      return {
+        success: false,
+        error: NO_INPUT_SCHEMA_ERROR,
+      } as ValidationResult<TConfig, TSchemas>;
+    }
+
+    const validationResult = await this._validateInput(input);
+
+    if (isOk(validationResult)) {
+      return {
+        success: true,
+        data: validationResult.value,
+      } as ValidationResult<TConfig, TSchemas>;
+    } else {
+      // Convert internal error to client-facing error
+      const clientError = convertToClientError(validationResult.error);
+      return { success: false, error: clientError } as ValidationResult<
+        TConfig,
+        TSchemas
+      >;
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -566,85 +569,32 @@ class Crafter<
   // --------------------------------------------------------------------------
 
   /**
-   * Creates error functions that return Result objects when called by action implementations.
+   * Ensures a Result object has the correct action ID.
+   */
+  private _ensureResultActionId<T, E>(result: Result<T, E>): Result<T, E> {
+    if (!result.__ac_id || result.__ac_id === "unknown") {
+      return {
+        ...result,
+        __ac_id: this._actionId!,
+      };
+    }
+    return result;
+  }
+
+  /**
+   * Creates error functions that return a Result object when called by the action handler.
    */
   private _buildErrorFunctions(): ErrorFunctions<TErrors> {
     const errorFns = {} as ErrorFunctions<TErrors>;
 
     for (const [key, errorDefFn] of Object.entries(this._errors)) {
       errorFns[key as keyof TErrors] = ((...args) =>
-        err(errorDefFn(...args))) as ErrorFunctions<TErrors>[keyof TErrors];
+        err(
+          errorDefFn(...args),
+          this._actionId!,
+        )) as ErrorFunctions<TErrors>[keyof TErrors];
     }
 
     return errorFns;
   }
-}
-
-// ============================================================================
-// PUBLIC API EXPORTS
-// ============================================================================
-
-/**
- * Creates a new Crafter instance for building type-safe server actions.
- */
-export function create<TConfig extends CrafterConfig = CrafterConfig>(
-  config?: TConfig,
-): Crafter<
-  TConfig,
-  Record<string, never>,
-  Record<string, never>,
-  Record<string, never>,
-  unknown
-> {
-  return new Crafter(
-    config ?? ({} as TConfig),
-    {},
-    {} as Record<string, never>,
-    {} as Record<string, never>,
-    undefined,
-  );
-}
-
-/**
- * Creates an appropriate initial state for any action based on its configuration.
- *
- * For useActionState actions: returns StatefulApiResult with error and values
- * For functional format actions: returns Result.err() with error
- * For regular actions: returns ApiResult with error
- *
- * Usage:
- * - useActionState: const [state, action] = useActionState(myAction, initial(myAction))
- * - useState: const [state, setState] = useState(initial(myAction))
- */
-export function initial<TAction>(action: TAction): InferResult<TAction> {
-  const error = {
-    type: EXTERNAL_ERROR_TYPES.INITIAL_STATE,
-    message: "Action has not been executed yet",
-  } as const;
-
-  // Attempt to read the ActionCraft config attached during craft()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cfg = (action as any)?.__ac_config as
-    | Partial<CrafterConfig>
-    | undefined;
-
-  // Functional format -> Result<_, _>
-  if (cfg?.resultFormat === "functional") {
-    return err(error) as unknown as InferResult<TAction>;
-  }
-
-  // useActionState enabled -> StatefulApiResult
-  if (cfg?.useActionState) {
-    return {
-      success: false as const,
-      error,
-      values: undefined,
-    } as unknown as InferResult<TAction>;
-  }
-
-  // Default ApiResult shape
-  return {
-    success: false as const,
-    error,
-  } as unknown as InferResult<TAction>;
 }

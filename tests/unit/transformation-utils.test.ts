@@ -1,8 +1,8 @@
-import { UNHANDLED_ERROR } from "../../src/core/errors";
+import { UNHANDLED_ERROR } from "../../src/classes/executor/errors";
 import {
   serializeRawInput,
   convertToClientError,
-} from "../../src/core/transformation";
+} from "../../src/classes/executor/transformation";
 import { INTERNAL_ERROR_TYPES } from "../../src/types/errors";
 import { describe, it, expect } from "../setup";
 

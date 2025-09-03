@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from "../standard-schema.js";
 import type { InferPrevStateArg } from "./actions.js";
-import type { CrafterConfig, CrafterErrors, CrafterSchemas } from "./config.js";
+import type { Config, Errors, Schemas } from "./builder.js";
 import type { InferData } from "./inference.js";
 import type {
   InferValidatedInput,
@@ -28,8 +28,8 @@ export type Prettify<T> = {
  * Standard success/error result format for actions.
  */
 export type ApiResult<TData, TError> =
-  | { success: true; data: TData }
-  | { success: false; error: TError };
+  | { success: true; data: TData; __ac_id: string }
+  | { success: false; error: TError; __ac_id: string };
 
 /**
  * Result format for actions using useActionState.
@@ -41,8 +41,8 @@ export type StatefulApiResult<
   TSuccessValues = unknown,
   TErrorValues = TSuccessValues,
 > =
-  | { success: true; data: TData; values?: TSuccessValues }
-  | { success: false; error: TError; values?: TErrorValues };
+  | { success: true; data: TData; values?: TSuccessValues; __ac_id: string }
+  | { success: false; error: TError; values?: TErrorValues; __ac_id: string };
 
 // ============================================================================
 // SCHEMA MAPPING UTILITIES
@@ -77,14 +77,18 @@ export type MapSchemasToValidatedOutput<T> = T extends readonly [
 // ============================================================================
 
 /**
- * Base metadata available in action implementations and callbacks.
+ * Base metadata available in action handlers and callbacks.
  */
 export type BaseMetadata<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = {
+  /** Unique identifier for this action instance */
+  actionId: string;
+  /** Optional user-provided name for this action */
+  actionName?: string;
   /** Original input before validation */
   rawInput?: InferRawInput<TSchemas>;
   /** Original bind arguments before validation */
@@ -94,12 +98,12 @@ export type BaseMetadata<
 };
 
 /**
- * Metadata passed to action implementation functions.
+ * Metadata passed to action handler functions.
  */
-export type ActionImplMetadata<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+export type HandlerMetadata<
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = BaseMetadata<TConfig, TSchemas, TErrors, TData>;
 
@@ -107,9 +111,9 @@ export type ActionImplMetadata<
  * Enhanced metadata passed to lifecycle callbacks.
  */
 export type CallbackMetadata<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 > = BaseMetadata<TConfig, TSchemas, TErrors, TData> & {
   /** Input data after validation */

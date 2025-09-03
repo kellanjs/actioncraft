@@ -1,13 +1,17 @@
-import type { StandardSchemaV1 } from "../standard-schema.js";
-import { EXTERNAL_ERROR_TYPES, INTERNAL_ERROR_TYPES } from "../types/errors.js";
+import type { StandardSchemaV1 } from "../../standard-schema.js";
+import {
+  EXTERNAL_ERROR_TYPES,
+  INTERNAL_ERROR_TYPES,
+} from "../../types/errors.js";
 import type {
   UnhandledError,
   ImplicitReturnError,
   InternalLogicError,
   ValidationErrorFormat,
-} from "../types/errors.js";
-import type { Result } from "../types/result.js";
-import { err } from "../types/result.js";
+  NoInputSchemaError,
+} from "../../types/errors.js";
+import type { Result } from "../../types/result.js";
+import { err } from "../../types/result.js";
 
 // ===========================================================================
 // CONSTANTS
@@ -20,7 +24,12 @@ export const UNHANDLED_ERROR: UnhandledError = {
 
 export const IMPLICIT_RETURN_ERROR: ImplicitReturnError = {
   type: INTERNAL_ERROR_TYPES.IMPLICIT_RETURN,
-  message: "Action implementation must return a value",
+  message: "Action handler must return a value",
+} as const;
+
+export const NO_INPUT_SCHEMA_ERROR: NoInputSchemaError = {
+  type: "NO_INPUT_SCHEMA",
+  message: "Cannot validate input: no input schema defined for this action",
 } as const;
 
 // ===========================================================================
@@ -43,8 +52,15 @@ export const createInternalLogicError = (
 export function createUnhandledErrorResult<
   TData = never,
   TError = UnhandledError,
->(): Result<TData, TError> {
-  return err({ ...UNHANDLED_ERROR }) as Result<TData, TError>;
+>(actionId: string, actionName?: string): Result<TData, TError> {
+  const message = actionName
+    ? `An unhandled error occurred in action "${actionName}"`
+    : "An unhandled error occurred";
+
+  return err({ ...UNHANDLED_ERROR, message }, actionId) as Result<
+    TData,
+    TError
+  >;
 }
 
 /**
@@ -53,8 +69,15 @@ export function createUnhandledErrorResult<
 export function createImplicitReturnErrorResult<
   TData = never,
   TError = ImplicitReturnError,
->(): Result<TData, TError> {
-  return err({ ...IMPLICIT_RETURN_ERROR }) as Result<TData, TError>;
+>(actionId: string, actionName?: string): Result<TData, TError> {
+  const message = actionName
+    ? `Action handler "${actionName}" must return a value`
+    : "Action handler must return a value";
+
+  return err({ ...IMPLICIT_RETURN_ERROR, message }, actionId) as Result<
+    TData,
+    TError
+  >;
 }
 
 // ===========================================================================
@@ -150,14 +173,23 @@ export function createValidationError<TError>(
   type: ValidationErrorType,
   message: string,
   errorStructure: ValidationErrorFormat,
+  actionName?: string,
 ): TError {
+  const enhancedMessage = actionName
+    ? `${message} in action "${actionName}"`
+    : message;
+
   if ("issues" in errorStructure) {
-    return _buildFlattenedValidationError(type, message, errorStructure.issues);
+    return _buildFlattenedValidationError(
+      type,
+      enhancedMessage,
+      errorStructure.issues,
+    );
   }
 
   return _buildNestedValidationError(
     type,
-    message,
+    enhancedMessage,
     errorStructure.formErrors,
     errorStructure.fieldErrors,
   );

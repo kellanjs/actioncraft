@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from "../standard-schema.js";
-import type { CrafterConfig, CrafterSchemas, CrafterErrors } from "./config.js";
+import type { Config, Schemas, Errors } from "./builder.js";
 import type { Result } from "./result.js";
 import type { Prettify } from "./shared.js";
 
@@ -43,7 +43,7 @@ export type ExternalErrorType =
 // ============================================================================
 
 /**
- * Base structure for all ActionCraft error objects.
+ * Base structure for all Actioncraft error objects.
  */
 export type BaseError = {
   type: string;
@@ -74,15 +74,15 @@ export type ErrorDefToResult<T> = T extends (...args: infer P) => any // eslint-
 // ============================================================================
 
 /**
- * Error when action implementation returns undefined.
+ * Error when action handler returns undefined.
  */
 export type ImplicitReturnError = BaseError & {
   type: typeof INTERNAL_ERROR_TYPES.IMPLICIT_RETURN;
-  message: "Action implementation must return a value";
+  message: "Action handler must return a value";
 };
 
 /**
- * Error indicating a bug in the ActionCraft library.
+ * Error indicating a bug in the Actioncraft library.
  */
 export type InternalLogicError = BaseError & {
   type: typeof INTERNAL_ERROR_TYPES.INTERNAL_LOGIC;
@@ -112,6 +112,15 @@ export type UnhandledError = BaseError & {
 // ============================================================================
 // VALIDATION ERROR TYPES
 // ============================================================================
+
+/**
+ * Error when no input schema is defined for an action.
+ * Used by `$validate` for client-side data validation.
+ */
+export type NoInputSchemaError = BaseError & {
+  type: "NO_INPUT_SCHEMA";
+  message: "Cannot validate input: no input schema defined for this action";
+};
 
 /**
  * Base structure for validation errors with nested field organization.
@@ -219,16 +228,16 @@ export type ValidationErrorFormat =
 // ============================================================================
 
 /**
- * Error functions object provided to action implementations.
+ * Error functions object provided to action handlers.
  */
-export type ErrorFunctions<TErrors extends CrafterErrors> = Prettify<{
+export type ErrorFunctions<TErrors extends Errors> = Prettify<{
   [K in keyof TErrors]: ErrorDefToResult<TErrors[K]>;
 }>;
 
 /**
  * Input validation error format based on configuration.
  */
-export type InferInputValidationErrorFormat<TConfig extends CrafterConfig> =
+export type InferInputValidationErrorFormat<TConfig extends Config> =
   TConfig["validationErrorFormat"] extends "nested"
     ? NestedInputValidationError
     : FlattenedInputValidationError;
@@ -236,7 +245,7 @@ export type InferInputValidationErrorFormat<TConfig extends CrafterConfig> =
 /**
  * Output validation error format based on configuration.
  */
-export type InferOutputValidationErrorFormat<TConfig extends CrafterConfig> =
+export type InferOutputValidationErrorFormat<TConfig extends Config> =
   TConfig["validationErrorFormat"] extends "nested"
     ? NestedOutputValidationError
     : FlattenedOutputValidationError;
@@ -244,7 +253,7 @@ export type InferOutputValidationErrorFormat<TConfig extends CrafterConfig> =
 /**
  * Bind arguments validation error format based on configuration.
  */
-export type InferBindArgsValidationErrorFormat<TConfig extends CrafterConfig> =
+export type InferBindArgsValidationErrorFormat<TConfig extends Config> =
   TConfig["validationErrorFormat"] extends "nested"
     ? NestedBindArgsValidationError
     : FlattenedBindArgsValidationError;
@@ -252,19 +261,18 @@ export type InferBindArgsValidationErrorFormat<TConfig extends CrafterConfig> =
 /**
  * All error types from user-defined error functions.
  */
-export type InferUserDefinedErrorTypes<TErrors extends CrafterErrors> = {
+export type InferUserDefinedErrorTypes<TErrors extends Errors> = {
   [K in keyof TErrors]: ReturnType<TErrors[K]>;
 }[keyof TErrors];
 
 /**
  * Error type for thrown exceptions based on custom handler configuration.
  */
-export type InferThrownErrorType<TConfig extends CrafterConfig> =
-  TConfig extends {
-    handleThrownError: (error: unknown) => infer R;
-  }
-    ? R
-    : UnhandledError;
+export type InferThrownErrorType<TConfig extends Config> = TConfig extends {
+  handleThrownError: (error: unknown) => infer R;
+}
+  ? R
+  : UnhandledError;
 
 // ============================================================================
 // CLIENT-FACING ERRORS
@@ -274,8 +282,8 @@ export type InferThrownErrorType<TConfig extends CrafterConfig> =
  * Input validation error type when input schema is present.
  */
 type InferInputValidationErrorType<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
+  TConfig extends Config,
+  TSchemas extends Schemas,
 > = TSchemas extends { inputSchema: StandardSchemaV1 }
   ? InferInputValidationErrorFormat<TConfig>
   : never;
@@ -284,8 +292,8 @@ type InferInputValidationErrorType<
  * Bind arguments validation error type when bind schemas are present.
  */
 type InferBindArgsValidationErrorType<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
+  TConfig extends Config,
+  TSchemas extends Schemas,
 > = TSchemas extends { bindSchemas: readonly StandardSchemaV1[] }
   ? InferBindArgsValidationErrorFormat<TConfig>
   : never;
@@ -294,9 +302,9 @@ type InferBindArgsValidationErrorType<
  * Possible errors that clients should expect when calling an action.
  */
 export type PossibleErrors<
-  TErrors extends CrafterErrors,
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
+  TErrors extends Errors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
 > =
   | InitialStateMarker
   | InferThrownErrorType<TConfig>
@@ -312,8 +320,8 @@ export type PossibleErrors<
  * Output validation error type when output schema is present.
  */
 type InferOutputValidationErrorType<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
+  TConfig extends Config,
+  TSchemas extends Schemas,
 > = TSchemas extends { outputSchema: StandardSchemaV1 }
   ? InferOutputValidationErrorFormat<TConfig>
   : never;
@@ -322,9 +330,9 @@ type InferOutputValidationErrorType<
  * All possible errors, both internal and external.
  */
 export type AllPossibleErrors<
-  TErrors extends CrafterErrors,
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
+  TErrors extends Errors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
 > =
   | PossibleErrors<TErrors, TConfig, TSchemas>
   | ImplicitReturnError

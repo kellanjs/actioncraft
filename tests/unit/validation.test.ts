@@ -1,4 +1,4 @@
-import { create } from "../../src/actioncraft";
+import { craft } from "../../src/index";
 import {
   stringSchema,
   numberSchema,
@@ -12,12 +12,13 @@ import { z } from "zod/v4";
 describe("Input Validation", () => {
   describe("Basic Validation", () => {
     it("should pass with valid input", async () => {
-      const action = create()
-        .schemas({ inputSchema: stringSchema })
-        .action(async ({ input }) => {
-          return (input as string).toUpperCase();
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input }) => {
+            return (input as string).toUpperCase();
+          }),
+      );
 
       const result = await action("hello world");
       expect(result.success).toBe(true);
@@ -27,12 +28,13 @@ describe("Input Validation", () => {
     });
 
     it("should fail with invalid input", async () => {
-      const action = create()
-        .schemas({ inputSchema: stringSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       // @ts-expect-error - Testing invalid input
       const result = await action(123);
@@ -43,13 +45,14 @@ describe("Input Validation", () => {
     });
 
     it("should handle complex object validation", async () => {
-      const action = create()
-        .schemas({ inputSchema: nestedSchema })
-        .action(async ({ input }) => {
-          const data = input as typeof validNestedData;
-          return `Hello ${data.user.profile.name}`;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: nestedSchema })
+          .handler(async ({ input }) => {
+            const data = input as typeof validNestedData;
+            return `Hello ${data.user.profile.name}`;
+          }),
+      );
 
       // Test valid nested data
       const validResult = await action(validNestedData);
@@ -81,12 +84,13 @@ describe("Input Validation", () => {
     });
 
     it("should handle null and undefined inputs", async () => {
-      const action = create()
-        .schemas({ inputSchema: stringSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       // @ts-expect-error - Testing null input
       const nullResult = await action(null);
@@ -123,12 +127,13 @@ describe("Input Validation", () => {
         },
       } as const;
 
-      const numberAction = create()
-        .schemas({ inputSchema: anyNumberSchema })
-        .action(async ({ input }) => {
-          return (input as number) * 2;
-        })
-        .craft();
+      const numberAction = craft((action) =>
+        action
+          .schemas({ inputSchema: anyNumberSchema })
+          .handler(async ({ input }) => {
+            return (input as number) * 2;
+          }),
+      );
 
       // Test zero
       const zeroResult = await numberAction(0);
@@ -145,12 +150,13 @@ describe("Input Validation", () => {
       }
 
       // Test positive numbers with the original schema
-      const positiveAction = create()
-        .schemas({ inputSchema: numberSchema })
-        .action(async ({ input }) => {
-          return (input as number) * 2;
-        })
-        .craft();
+      const positiveAction = craft((action) =>
+        action
+          .schemas({ inputSchema: numberSchema })
+          .handler(async ({ input }) => {
+            return (input as number) * 2;
+          }),
+      );
 
       const positiveResult = await positiveAction(5);
       expect(positiveResult.success).toBe(true);
@@ -192,12 +198,13 @@ describe("Input Validation", () => {
         },
       } as const;
 
-      const action = create()
-        .schemas({ inputSchema: objectSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: objectSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       // Test empty object
       const emptyObjectResult = await action({});
@@ -211,12 +218,13 @@ describe("Input Validation", () => {
     it("should allow optional input to be omitted when schema allows", async () => {
       const optionalStringSchema = z.string().optional();
 
-      const action = create()
-        .schemas({ inputSchema: optionalStringSchema })
-        .action(async ({ input }) => {
-          return input ? `Got: ${input}` : "NO_INPUT";
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: optionalStringSchema })
+          .handler(async ({ input }) => {
+            return input ? `Got: ${input}` : "NO_INPUT";
+          }),
+      );
 
       // Call without providing input (undefined)
       const omittedResult = await action(
@@ -246,12 +254,13 @@ describe("Input Validation", () => {
 
   describe("Validation Error Formatting", () => {
     it("should format errors as flattened by default", async () => {
-      const action = create()
-        .schemas({ inputSchema: strictSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: strictSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const invalidData = {
         requiredField: "", // Invalid: empty string
@@ -269,14 +278,16 @@ describe("Input Validation", () => {
     });
 
     it("should format errors as flattened when configured", async () => {
-      const action = create({
-        validationErrorFormat: "flattened",
-      })
-        .schemas({ inputSchema: strictSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            validationErrorFormat: "flattened",
+          })
+          .schemas({ inputSchema: strictSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const invalidData = {
         requiredField: "", // Invalid: empty string
@@ -294,12 +305,13 @@ describe("Input Validation", () => {
     });
 
     it("should handle complex nested validation errors", async () => {
-      const action = create()
-        .schemas({ inputSchema: nestedSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: nestedSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       // Create deeply invalid nested data
       const deeplyInvalidData = {
@@ -352,12 +364,13 @@ describe("Input Validation", () => {
         },
       } as const;
 
-      const action = create()
-        .schemas({ inputSchema: singleFieldSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: singleFieldSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const result = await action("hi");
       expect(result.success).toBe(false);
@@ -391,14 +404,16 @@ describe("Input Validation", () => {
         },
       } as const;
 
-      const action = create({
-        validationErrorFormat: "flattened",
-      })
-        .schemas({ inputSchema: singleFieldSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            validationErrorFormat: "flattened",
+          })
+          .schemas({ inputSchema: singleFieldSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const result = await action("hi");
       expect(result.success).toBe(false);
@@ -451,12 +466,13 @@ describe("Input Validation", () => {
       } as const;
 
       // Test flattened format (default)
-      const defaultAction = create()
-        .schemas({ inputSchema: multiIssueSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const defaultAction = craft((action) =>
+        action
+          .schemas({ inputSchema: multiIssueSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const defaultResult = await defaultAction({
         name: 123,
@@ -470,14 +486,16 @@ describe("Input Validation", () => {
       }
 
       // Test nested format when explicitly configured
-      const nestedAction = create({
-        validationErrorFormat: "nested",
-      })
-        .schemas({ inputSchema: multiIssueSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const nestedAction = craft((action) =>
+        action
+          .config({
+            validationErrorFormat: "nested",
+          })
+          .schemas({ inputSchema: multiIssueSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const nestedResult = await nestedAction({
         name: 123,
@@ -492,14 +510,16 @@ describe("Input Validation", () => {
       }
 
       // Test flattened format
-      const flattenedAction = create({
-        validationErrorFormat: "flattened",
-      })
-        .schemas({ inputSchema: multiIssueSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const flattenedAction = craft((action) =>
+        action
+          .config({
+            validationErrorFormat: "flattened",
+          })
+          .schemas({ inputSchema: multiIssueSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const flattenedResult = await flattenedAction({
         name: 123,
@@ -520,18 +540,19 @@ describe("Input Validation", () => {
 
   describe("Bind Argument Validation", () => {
     it("should validate bind arguments successfully", async () => {
-      const action = create()
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema, stringSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          const [multiplier, prefix] = bindArgs;
-          return `${prefix as string}: ${(input as string).repeat(
-            multiplier as number,
-          )}`;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [numberSchema, stringSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            const [multiplier, prefix] = bindArgs;
+            return `${prefix as string}: ${(input as string).repeat(
+              multiplier as number,
+            )}`;
+          }),
+      );
 
       const result = await action(3, "Test", "Hi");
       expect(result.success).toBe(true);
@@ -541,18 +562,19 @@ describe("Input Validation", () => {
     });
 
     it("should return a BIND_ARGS_VALIDATION_ERROR for invalid bind args", async () => {
-      const action = create()
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema, stringSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          const [multiplier, prefix] = bindArgs;
-          return `${prefix as string}: ${(input as string).repeat(
-            multiplier as number,
-          )}`;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [numberSchema, stringSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            const [multiplier, prefix] = bindArgs;
+            return `${prefix as string}: ${(input as string).repeat(
+              multiplier as number,
+            )}`;
+          }),
+      );
 
       // @ts-expect-error - Testing invalid bind args
       const result = await action("invalid", "Test", "Hi"); // First bind arg should be number
@@ -563,16 +585,17 @@ describe("Input Validation", () => {
     });
 
     it("should handle mixed valid and invalid bind args with BIND_ARGS_VALIDATION", async () => {
-      const action = create()
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema, stringSchema, numberSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          const _unused = { input, bindArgs };
-          return "success";
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [numberSchema, stringSchema, numberSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            const _unused = { input, bindArgs };
+            return "success";
+          }),
+      );
 
       // Second bind arg is invalid (should be string, not number)
       // @ts-expect-error - Testing invalid bind args
@@ -584,15 +607,16 @@ describe("Input Validation", () => {
     });
 
     it("should work without input schema but with bind args", async () => {
-      const action = create()
-        .schemas({
-          bindSchemas: [stringSchema, numberSchema] as const,
-        })
-        .action(async ({ bindArgs }) => {
-          const [name, age] = bindArgs;
-          return `${name as string} is ${age as number} years old`;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({
+            bindSchemas: [stringSchema, numberSchema] as const,
+          })
+          .handler(async ({ bindArgs }) => {
+            const [name, age] = bindArgs;
+            return `${name as string} is ${age as number} years old`;
+          }),
+      );
 
       const result = await action("Alice", 25);
       expect(result.success).toBe(true);
@@ -602,16 +626,17 @@ describe("Input Validation", () => {
     });
 
     it("should distinguish between input validation and bind args validation errors", async () => {
-      const action = create()
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          const [multiplier] = bindArgs;
-          return (input as string).repeat(multiplier as number);
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [numberSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            const [multiplier] = bindArgs;
+            return (input as string).repeat(multiplier as number);
+          }),
+      );
 
       // Test bind args validation error
       // @ts-expect-error - Testing invalid bind args
@@ -663,15 +688,16 @@ describe("Input Validation", () => {
       } as const;
 
       // Test flattened format (default)
-      const defaultAction = create()
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [complexBindSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          return `${input}: ${JSON.stringify(bindArgs[0])}`;
-        })
-        .craft();
+      const defaultAction = craft((action) =>
+        action
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [complexBindSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            return `${input}: ${JSON.stringify(bindArgs[0])}`;
+          }),
+      );
 
       const defaultResult = await defaultAction({ invalid: "data" }, "test");
       expect(defaultResult.success).toBe(false);
@@ -681,17 +707,19 @@ describe("Input Validation", () => {
       }
 
       // Test nested format when explicitly configured
-      const nestedAction = create({
-        validationErrorFormat: "nested",
-      })
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [complexBindSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          return `${input}: ${JSON.stringify(bindArgs[0])}`;
-        })
-        .craft();
+      const nestedAction = craft((action) =>
+        action
+          .config({
+            validationErrorFormat: "nested",
+          })
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [complexBindSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            return `${input}: ${JSON.stringify(bindArgs[0])}`;
+          }),
+      );
 
       const nestedResult = await nestedAction({ invalid: "data" }, "test");
       expect(nestedResult.success).toBe(false);
@@ -702,17 +730,19 @@ describe("Input Validation", () => {
       }
 
       // Test flattened format
-      const flattenedAction = create({
-        validationErrorFormat: "flattened",
-      })
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [complexBindSchema] as const,
-        })
-        .action(async ({ input, bindArgs }) => {
-          return `${input}: ${JSON.stringify(bindArgs[0])}`;
-        })
-        .craft();
+      const flattenedAction = craft((action) =>
+        action
+          .config({
+            validationErrorFormat: "flattened",
+          })
+          .schemas({
+            inputSchema: stringSchema,
+            bindSchemas: [complexBindSchema] as const,
+          })
+          .handler(async ({ input, bindArgs }) => {
+            return `${input}: ${JSON.stringify(bindArgs[0])}`;
+          }),
+      );
 
       const flattenedResult = await flattenedAction(
         { invalid: "data" },
@@ -726,15 +756,16 @@ describe("Input Validation", () => {
     });
 
     it("should handle single bind arg validation", async () => {
-      const action = create()
-        .schemas({
-          bindSchemas: [stringSchema] as const,
-        })
-        .action(async ({ bindArgs }) => {
-          const [message] = bindArgs;
-          return `Message: ${message as string}`;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({
+            bindSchemas: [stringSchema] as const,
+          })
+          .handler(async ({ bindArgs }) => {
+            const [message] = bindArgs;
+            return `Message: ${message as string}`;
+          }),
+      );
 
       // Valid single bind arg
       const validResult = await action("Hello World");
@@ -753,15 +784,16 @@ describe("Input Validation", () => {
     });
 
     it("should handle multiple bind args with partial failures", async () => {
-      const action = create()
-        .schemas({
-          bindSchemas: [stringSchema, numberSchema, stringSchema] as const,
-        })
-        .action(async ({ bindArgs }) => {
-          const [first, second, third] = bindArgs;
-          return `${first}: ${second} -> ${third}`;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({
+            bindSchemas: [stringSchema, numberSchema, stringSchema] as const,
+          })
+          .handler(async ({ bindArgs }) => {
+            const [first, second, third] = bindArgs;
+            return `${first}: ${second} -> ${third}`;
+          }),
+      );
 
       // All valid
       const validResult = await action("Start", 42, "End");
@@ -809,12 +841,13 @@ describe("Input Validation", () => {
         },
       } as const;
 
-      const action = create()
-        .schemas({ inputSchema: permissiveSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: permissiveSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       // Should succeed with any input
       const result1 = await action("string");
@@ -847,12 +880,13 @@ describe("Input Validation", () => {
         },
       } as const;
 
-      const action = create()
-        .schemas({ inputSchema: transformingSchema })
-        .action(async ({ input }) => {
-          return `Transformed: ${input as string}`;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .schemas({ inputSchema: transformingSchema })
+          .handler(async ({ input }) => {
+            return `Transformed: ${input as string}`;
+          }),
+      );
 
       const result = await action("hello world");
       expect(result.success).toBe(true);
@@ -880,30 +914,35 @@ describe("Input Validation", () => {
         },
       } as const;
 
-      const defaultAction = create()
-        .schemas({ inputSchema: rootErrorSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const defaultAction = craft((action) =>
+        action
+          .schemas({ inputSchema: rootErrorSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
-      const nestedAction = create({
-        validationErrorFormat: "nested",
-      })
-        .schemas({ inputSchema: rootErrorSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const nestedAction = craft((action) =>
+        action
+          .config({
+            validationErrorFormat: "nested",
+          })
+          .schemas({ inputSchema: rootErrorSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
-      const flattenedAction = create({
-        validationErrorFormat: "flattened",
-      })
-        .schemas({ inputSchema: rootErrorSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const flattenedAction = craft((action) =>
+        action
+          .config({
+            validationErrorFormat: "flattened",
+          })
+          .schemas({ inputSchema: rootErrorSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const defaultResult = await defaultAction("invalid");
       expect(defaultResult.success).toBe(false);

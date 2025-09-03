@@ -1,4 +1,4 @@
-import { create, initial } from "../../src/actioncraft";
+import { craft, initial } from "../../src/index";
 import {
   basicFormDataSchema,
   basicFormDataOnlySchema,
@@ -12,19 +12,21 @@ import { z } from "zod/v4";
 describe("Enhanced FormData Support", () => {
   describe("File Upload Scenarios", () => {
     it("should handle single file upload", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: fileUploadSchema })
-        .action(async ({ input }) => {
-          expect(input.name).toBe("test-user");
-          expect(input.avatar).toBeInstanceOf(File);
-          expect(input.avatar?.name).toBe("avatar.png");
-          expect(input.avatar?.type).toBe("image/png");
-          expect(input.documents).toHaveLength(0);
-          return { uploaded: true, fileName: input.avatar?.name };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: fileUploadSchema })
+          .handler(async ({ input }) => {
+            expect(input.name).toBe("test-user");
+            expect(input.avatar).toBeInstanceOf(File);
+            expect(input.avatar?.name).toBe("avatar.png");
+            expect(input.avatar?.type).toBe("image/png");
+            expect(input.documents).toHaveLength(0);
+            return { uploaded: true, fileName: input.avatar?.name };
+          }),
+      );
 
       // Create a real File object
       const avatarFile = new File(["fake image data"], "avatar.png", {
@@ -45,25 +47,27 @@ describe("Enhanced FormData Support", () => {
     });
 
     it("should handle multiple file uploads", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: fileUploadSchema })
-        .action(async ({ input }) => {
-          expect(input.documents).toHaveLength(3);
-          expect(input.documents[0]).toBeInstanceOf(File);
-          expect(input.documents[1]).toBeInstanceOf(File);
-          expect(input.documents[2]).toBeInstanceOf(File);
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: fileUploadSchema })
+          .handler(async ({ input }) => {
+            expect(input.documents).toHaveLength(3);
+            expect(input.documents[0]).toBeInstanceOf(File);
+            expect(input.documents[1]).toBeInstanceOf(File);
+            expect(input.documents[2]).toBeInstanceOf(File);
 
-          const fileNames = input.documents.map((file: any) => file.name);
-          expect(fileNames).toEqual(["doc1.pdf", "doc2.txt", "doc3.docx"]);
+            const fileNames = input.documents.map((file: any) => file.name);
+            expect(fileNames).toEqual(["doc1.pdf", "doc2.txt", "doc3.docx"]);
 
-          return {
-            uploadedCount: input.documents.length,
-            fileNames,
-          };
-        })
-        .craft();
+            return {
+              uploadedCount: input.documents.length,
+              fileNames,
+            };
+          }),
+      );
 
       const formData = new FormData();
       formData.append("name", "test-user");
@@ -107,23 +111,25 @@ describe("Enhanced FormData Support", () => {
         category: zfd.text(z.enum(["work", "personal", "urgent"])),
       });
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: complexSchema })
-        .action(async ({ input }) => {
-          return {
-            title: input.title,
-            hasThumb: !!input.thumbnail,
-            thumbName: input.thumbnail?.name,
-            attachmentCount: input.attachments.length,
-            isPublic: input.isPublic,
-            tags: input.tags,
-            priority: input.priority,
-            category: input.category,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: complexSchema })
+          .handler(async ({ input }) => {
+            return {
+              title: input.title,
+              hasThumb: !!input.thumbnail,
+              thumbName: input.thumbnail?.name,
+              attachmentCount: input.attachments.length,
+              isPublic: input.isPublic,
+              tags: input.tags,
+              priority: input.priority,
+              category: input.category,
+            };
+          }),
+      );
 
       const formData = new FormData();
       formData.append("title", "Complex Form Test");
@@ -163,23 +169,25 @@ describe("Enhanced FormData Support", () => {
     });
 
     it("should handle binary file data correctly", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: fileUploadSchema })
-        .action(async ({ input }) => {
-          // Read the file content to verify it's preserved
-          if (input.avatar) {
-            const content = await input.avatar.text();
-            expect(content).toBe("Binary content: \x00\x01\x02\xFF");
-            return {
-              contentPreserved: true as const,
-              size: input.avatar.size,
-            };
-          }
-          return { contentPreserved: true as const, size: 0 };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: fileUploadSchema })
+          .handler(async ({ input }) => {
+            // Read the file content to verify it's preserved
+            if (input.avatar) {
+              const content = await input.avatar.text();
+              expect(content).toBe("Binary content: \x00\x01\x02\xFF");
+              return {
+                contentPreserved: true as const,
+                size: input.avatar.size,
+              };
+            }
+            return { contentPreserved: true as const, size: 0 };
+          }),
+      );
 
       // Create file with binary content
       const textContent = "Binary content: \x00\x01\x02\xFF";
@@ -203,16 +211,20 @@ describe("Enhanced FormData Support", () => {
 
   describe("FormData Edge Cases", () => {
     it("should handle empty FormData", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .action(async ({ metadata }) => {
-          expect(metadata.rawInput).toBeInstanceOf(FormData);
-          const entries = Array.from((metadata.rawInput as FormData).entries());
-          expect(entries).toHaveLength(0);
-          return { isEmpty: true, entryCount: entries.length };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .handler(async ({ metadata }) => {
+            expect(metadata.rawInput).toBeInstanceOf(FormData);
+            const entries = Array.from(
+              (metadata.rawInput as FormData).entries(),
+            );
+            expect(entries).toHaveLength(0);
+            return { isEmpty: true, entryCount: entries.length };
+          }),
+      );
 
       const emptyFormData = new FormData();
       const result = await action(initial(action), emptyFormData);
@@ -225,14 +237,16 @@ describe("Enhanced FormData Support", () => {
     });
 
     it("should handle FormData with missing required fields", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: basicFormDataSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: basicFormDataSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       // FormData missing required fields
       const incompleteFormData = new FormData();
@@ -247,15 +261,17 @@ describe("Enhanced FormData Support", () => {
     });
 
     it("should handle FormData with invalid field types", async () => {
-      const action = create({
-        useActionState: true,
-        validationErrorFormat: "flattened",
-      })
-        .schemas({ inputSchema: basicFormDataSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+            validationErrorFormat: "flattened",
+          })
+          .schemas({ inputSchema: basicFormDataSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       const invalidFormData = new FormData();
       invalidFormData.append("name", "John");
@@ -281,18 +297,20 @@ describe("Enhanced FormData Support", () => {
         skills: zfd.repeatableOfType(zfd.text()),
       });
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: duplicateFieldSchema })
-        .action(async ({ input }) => {
-          return {
-            name: input.name,
-            skillCount: input.skills.length,
-            skills: input.skills,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: duplicateFieldSchema })
+          .handler(async ({ input }) => {
+            return {
+              name: input.name,
+              skillCount: input.skills.length,
+              skills: input.skills,
+            };
+          }),
+      );
 
       const formData = new FormData();
       formData.append("name", "John");
@@ -317,21 +335,23 @@ describe("Enhanced FormData Support", () => {
     });
 
     it("should handle FormData with large file sizes", async () => {
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: fileUploadSchema })
-        .action(async ({ input }) => {
-          if (input.avatar) {
-            return {
-              fileName: input.avatar.name,
-              fileSize: input.avatar.size,
-              isLarge: input.avatar.size > 1024 * 1024, // 1MB
-            };
-          }
-          return { fileName: "none", fileSize: 0, isLarge: false };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: fileUploadSchema })
+          .handler(async ({ input }) => {
+            if (input.avatar) {
+              return {
+                fileName: input.avatar.name,
+                fileSize: input.avatar.size,
+                isLarge: input.avatar.size > 1024 * 1024, // 1MB
+              };
+            }
+            return { fileName: "none", fileSize: 0, isLarge: false };
+          }),
+      );
 
       // Create a large file (2MB of data)
       const largeContent = "x".repeat(2 * 1024 * 1024);
@@ -361,19 +381,21 @@ describe("Enhanced FormData Support", () => {
         unicodeField: zfd.text(),
       });
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: specialCharSchema })
-        .action(async ({ input }) => {
-          return {
-            dashes: input["field-with-dashes"],
-            underscores: input["field_with_underscores"],
-            normal: input.normalField,
-            unicode: input.unicodeField,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: specialCharSchema })
+          .handler(async ({ input }) => {
+            return {
+              dashes: input["field-with-dashes"],
+              underscores: input["field_with_underscores"],
+              normal: input.normalField,
+              unicode: input.unicodeField,
+            };
+          }),
+      );
 
       const formData = new FormData();
       formData.append("field-with-dashes", "dash-value");
@@ -402,18 +424,20 @@ describe("Enhanced FormData Support", () => {
         age: zfd.numeric(),
       });
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: flexibleSchema })
-        .action(async ({ input, metadata }) => {
-          return {
-            data: input,
-            wasFormData: metadata.rawInput instanceof FormData,
-            inputType: typeof metadata.rawInput,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: flexibleSchema })
+          .handler(async ({ input, metadata }) => {
+            return {
+              data: input,
+              wasFormData: metadata.rawInput instanceof FormData,
+              inputType: typeof metadata.rawInput,
+            };
+          }),
+      );
 
       // Test with regular object - should work (by design)
       const regularObject = {
@@ -449,19 +473,21 @@ describe("Enhanced FormData Support", () => {
 
     it("should enforce FormData-only if specifically required", async () => {
       // Use the schema-level solution instead of manual checking
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: basicFormDataOnlySchema })
-        .action(async ({ input, metadata }) => {
-          return {
-            data: input,
-            formDataEntries: Array.from(
-              (metadata.rawInput as FormData).entries(),
-            ),
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: basicFormDataOnlySchema })
+          .handler(async ({ input, metadata }) => {
+            return {
+              data: input,
+              formDataEntries: Array.from(
+                (metadata.rawInput as FormData).entries(),
+              ),
+            };
+          }),
+      );
 
       // Regular object should be rejected by schema validation
       const objectResult = await action(initial(action), {
@@ -513,18 +539,20 @@ describe("Enhanced FormData Support", () => {
         }),
       ]);
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: flexibleSchema })
-        .action(async ({ input, metadata }) => {
-          return {
-            data: input,
-            wasFormData: metadata.rawInput instanceof FormData,
-            type: typeof metadata.rawInput,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: flexibleSchema })
+          .handler(async ({ input, metadata }) => {
+            return {
+              data: input,
+              wasFormData: metadata.rawInput instanceof FormData,
+              type: typeof metadata.rawInput,
+            };
+          }),
+      );
 
       // Test with FormData
       const formData = new FormData();
@@ -565,30 +593,32 @@ describe("Enhanced FormData Support", () => {
         email: zfd.text().optional(),
       });
 
-      const action = create({
-        useActionState: true,
-        validationErrorFormat: "nested",
-      })
-        .schemas({ inputSchema: lenientSchema })
-        .errors({
-          malformedData: (reason: string) =>
-            ({
-              type: "MALFORMED_DATA",
-              reason,
-            }) as const,
-        })
-        .action(async ({ input, errors, metadata }) => {
-          // Check if we received completely unexpected data structure
-          if (metadata.rawInput instanceof FormData) {
-            const entries = Array.from(metadata.rawInput.entries());
-            if (entries.length === 0) {
-              return errors.malformedData("Empty FormData received");
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+            validationErrorFormat: "nested",
+          })
+          .schemas({ inputSchema: lenientSchema })
+          .errors({
+            malformedData: (reason: string) =>
+              ({
+                type: "MALFORMED_DATA",
+                reason,
+              }) as const,
+          })
+          .handler(async ({ input, errors, metadata }) => {
+            // Check if we received completely unexpected data structure
+            if (metadata.rawInput instanceof FormData) {
+              const entries = Array.from(metadata.rawInput.entries());
+              if (entries.length === 0) {
+                return errors.malformedData("Empty FormData received");
+              }
             }
-          }
 
-          return input;
-        })
-        .craft();
+            return input;
+          }),
+      );
 
       // Test with empty FormData
       const emptyFormData = new FormData();
@@ -601,19 +631,21 @@ describe("Enhanced FormData Support", () => {
     });
 
     it("should handle checkbox variations correctly", async () => {
-      const checkboxAction = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: checkboxFormSchema })
-        .action(async ({ input }) => {
-          return {
-            name: input.name,
-            isPrivate: input.isPrivate,
-            tags: input.tags,
-            tagCount: input.tags.length,
-          };
-        })
-        .craft();
+      const checkboxAction = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: checkboxFormSchema })
+          .handler(async ({ input }) => {
+            return {
+              name: input.name,
+              isPrivate: input.isPrivate,
+              tags: input.tags,
+              tagCount: input.tags.length,
+            };
+          }),
+      );
 
       // Test checked checkbox
       const checkedFormData = new FormData();
@@ -664,28 +696,30 @@ describe("Enhanced FormData Support", () => {
         preferences: zfd.repeatableOfType(zfd.text()),
       });
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: nestedFormSchema })
-        .action(async ({ input }) => {
-          return {
-            user: {
-              name: input.userName,
-              email: input.userEmail,
-            },
-            profile: {
-              bio: input.profileBio,
-              hasAvatar: !!input.profileAvatar,
-            },
-            settings: {
-              theme: input.settingsTheme,
-              notifications: input.settingsNotifications,
-            },
-            preferences: input.preferences,
-          };
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: nestedFormSchema })
+          .handler(async ({ input }) => {
+            return {
+              user: {
+                name: input.userName,
+                email: input.userEmail,
+              },
+              profile: {
+                bio: input.profileBio,
+                hasAvatar: !!input.profileAvatar,
+              },
+              settings: {
+                theme: input.settingsTheme,
+                notifications: input.settingsNotifications,
+              },
+              preferences: input.preferences,
+            };
+          }),
+      );
 
       const formData = new FormData();
       formData.append("userName", "John Doe");
@@ -756,23 +790,25 @@ describe("Enhanced FormData Support", () => {
           };
         });
 
-      const action = create({
-        useActionState: true,
-      })
-        .schemas({ inputSchema: improvedArraySchema })
-        .action(async ({ input }) => {
-          return {
-            title: input.title,
-            itemCount: input.items.length,
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+          })
+          .schemas({ inputSchema: improvedArraySchema })
+          .handler(async ({ input }) => {
+            return {
+              title: input.title,
+              itemCount: input.items.length,
 
-            items: input.items.map((item: any) => ({
-              name: item.name,
-              hasFile: !!item.file,
-              fileName: item.file?.name || null,
-            })),
-          };
-        })
-        .craft();
+              items: input.items.map((item: any) => ({
+                name: item.name,
+                hasFile: !!item.file,
+                fileName: item.file?.name || null,
+              })),
+            };
+          }),
+      );
 
       const formData = new FormData();
       formData.append("title", "Improved Array Test");
@@ -825,15 +861,17 @@ describe("Enhanced FormData Support", () => {
           .pipe(z.boolean().refine((val) => val === true, "Must accept terms")),
       });
 
-      const action = create({
-        useActionState: true,
-        validationErrorFormat: "nested",
-      })
-        .schemas({ inputSchema: complexSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+            validationErrorFormat: "nested",
+          })
+          .schemas({ inputSchema: complexSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       // Create FormData with multiple validation errors
       const invalidFormData = new FormData();
@@ -876,15 +914,17 @@ describe("Enhanced FormData Support", () => {
         ),
       });
 
-      const action = create({
-        useActionState: true,
-        validationErrorFormat: "flattened",
-      })
-        .schemas({ inputSchema: fileValidationSchema })
-        .action(async ({ input }) => {
-          return input;
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .config({
+            useActionState: true,
+            validationErrorFormat: "flattened",
+          })
+          .schemas({ inputSchema: fileValidationSchema })
+          .handler(async ({ input }) => {
+            return input;
+          }),
+      );
 
       // Create a file that violates validation rules
       const largeContent = "x".repeat(2 * 1024 * 1024); // 2MB
@@ -915,24 +955,26 @@ describe("Enhanced FormData Support", () => {
   describe("Advanced FormData Edge Cases", () => {
     describe("Large file handling", () => {
       it("should handle very large files efficiently", async () => {
-        const action = create({
-          useActionState: true,
-        })
-          .schemas({ inputSchema: fileUploadSchema })
-          .action(async ({ input }) => {
-            const file = input.avatar;
-            if (!file) return { processed: false as const };
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+            })
+            .schemas({ inputSchema: fileUploadSchema })
+            .handler(async ({ input }) => {
+              const file = input.avatar;
+              if (!file) return { processed: false as const };
 
-            // Process file metadata without reading entire content
-            return {
-              processed: true as const,
-              fileName: file.name,
-              fileSize: file.size,
-              fileType: file.type,
-              isLarge: file.size > 5 * 1024 * 1024, // 5MB
-            };
-          })
-          .craft();
+              // Process file metadata without reading entire content
+              return {
+                processed: true as const,
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                isLarge: file.size > 5 * 1024 * 1024, // 5MB
+              };
+            }),
+        );
 
         // Create a large file (10MB)
         const largeContent = new Uint8Array(10 * 1024 * 1024);
@@ -966,27 +1008,29 @@ describe("Enhanced FormData Support", () => {
       });
 
       it("should handle multiple large files", async () => {
-        const action = create({
-          useActionState: true,
-        })
-          .schemas({ inputSchema: fileUploadSchema })
-          .action(async ({ input }) => {
-            const totalSize = input.documents.reduce(
-              (sum: any, file: any) => sum + file.size,
-              0,
-            );
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+            })
+            .schemas({ inputSchema: fileUploadSchema })
+            .handler(async ({ input }) => {
+              const totalSize = input.documents.reduce(
+                (sum: any, file: any) => sum + file.size,
+                0,
+              );
 
-            return {
-              fileCount: input.documents.length,
-              totalSize,
-              averageSize: totalSize / input.documents.length,
+              return {
+                fileCount: input.documents.length,
+                totalSize,
+                averageSize: totalSize / input.documents.length,
 
-              largeFiles: input.documents.filter(
-                (file: any) => file.size > 1024 * 1024,
-              ).length,
-            };
-          })
-          .craft();
+                largeFiles: input.documents.filter(
+                  (file: any) => file.size > 1024 * 1024,
+                ).length,
+              };
+            }),
+        );
 
         const formData = new FormData();
         formData.append("name", "multi-large-test");
@@ -1016,26 +1060,28 @@ describe("Enhanced FormData Support", () => {
 
     describe("Binary data edge cases", () => {
       it("should handle null bytes and special characters in file content", async () => {
-        const action = create({
-          useActionState: true,
-        })
-          .schemas({ inputSchema: fileUploadSchema })
-          .action(async ({ input }) => {
-            if (!input.avatar) return { hasContent: false };
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+            })
+            .schemas({ inputSchema: fileUploadSchema })
+            .handler(async ({ input }) => {
+              if (!input.avatar) return { hasContent: false };
 
-            const content = await input.avatar.arrayBuffer();
-            const bytes = new Uint8Array(content);
+              const content = await input.avatar.arrayBuffer();
+              const bytes = new Uint8Array(content);
 
-            return {
-              hasContent: true,
-              size: bytes.length,
-              hasNullBytes: bytes.includes(0),
-              hasMaxBytes: bytes.includes(255),
-              firstByte: bytes[0],
-              lastByte: bytes[bytes.length - 1],
-            };
-          })
-          .craft();
+              return {
+                hasContent: true,
+                size: bytes.length,
+                hasNullBytes: bytes.includes(0),
+                hasMaxBytes: bytes.includes(255),
+                firstByte: bytes[0],
+                lastByte: bytes[bytes.length - 1],
+              };
+            }),
+        );
 
         // Create file with special binary content
         const binaryContent = new Uint8Array([
@@ -1064,22 +1110,24 @@ describe("Enhanced FormData Support", () => {
       });
 
       it("should handle Unicode filenames and special characters", async () => {
-        const action = create({
-          useActionState: true,
-        })
-          .schemas({ inputSchema: fileUploadSchema })
-          .action(async ({ input }) => {
-            const files = input.documents;
-            return {
-              filenames: files.map((file: any) => file.name),
-              filenameCount: files.length,
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+            })
+            .schemas({ inputSchema: fileUploadSchema })
+            .handler(async ({ input }) => {
+              const files = input.documents;
+              return {
+                filenames: files.map((file: any) => file.name),
+                filenameCount: files.length,
 
-              hasUnicode: files.some((file: any) =>
-                /[^\x00-\x7F]/.test(file.name),
-              ),
-            };
-          })
-          .craft();
+                hasUnicode: files.some((file: any) =>
+                  /[^\x00-\x7F]/.test(file.name),
+                ),
+              };
+            }),
+        );
 
         const formData = new FormData();
         formData.append("name", "unicode-test");
@@ -1112,23 +1160,25 @@ describe("Enhanced FormData Support", () => {
       });
 
       it("should handle different line endings in text files", async () => {
-        const action = create({
-          useActionState: true,
-        })
-          .schemas({ inputSchema: fileUploadSchema })
-          .action(async ({ input }) => {
-            if (!input.avatar) return { analyzed: false };
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+            })
+            .schemas({ inputSchema: fileUploadSchema })
+            .handler(async ({ input }) => {
+              if (!input.avatar) return { analyzed: false };
 
-            const text = await input.avatar.text();
-            return {
-              analyzed: true,
-              hasWindows: text.includes("\r\n"),
-              hasUnix: /(?<!\r)\n/.test(text), // Unix newlines not preceded by \r
-              hasMac: /\r(?!\n)/.test(text), // Mac \r not followed by \n
-              lineCount: text.split(/\r\n|\r|\n/).length - 1,
-            };
-          })
-          .craft();
+              const text = await input.avatar.text();
+              return {
+                analyzed: true,
+                hasWindows: text.includes("\r\n"),
+                hasUnix: /(?<!\r)\n/.test(text), // Unix newlines not preceded by \r
+                hasMac: /\r(?!\n)/.test(text), // Mac \r not followed by \n
+                lineCount: text.split(/\r\n|\r|\n/).length - 1,
+              };
+            }),
+        );
 
         // Create file with mixed line endings
         const mixedContent = [
@@ -1172,19 +1222,21 @@ describe("Enhanced FormData Support", () => {
           count: zfd.numeric(z.number().optional()),
         });
 
-        const action = create({
-          useActionState: true,
-        })
-          .schemas({ inputSchema: optionalSchema })
-          .action(async ({ input }) => {
-            return {
-              hasName: !!input.name,
-              hasCount: !!input.count,
-              nameValue: input.name || "default",
-              countValue: input.count || 0,
-            };
-          })
-          .craft();
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+            })
+            .schemas({ inputSchema: optionalSchema })
+            .handler(async ({ input }) => {
+              return {
+                hasName: !!input.name,
+                hasCount: !!input.count,
+                nameValue: input.name || "default",
+                countValue: input.count || 0,
+              };
+            }),
+        );
 
         // Empty FormData
         const emptyFormData = new FormData();
@@ -1201,19 +1253,21 @@ describe("Enhanced FormData Support", () => {
       });
 
       it("should handle duplicate field names appropriately", async () => {
-        const action = create({
-          useActionState: true,
-        })
-          .schemas({ inputSchema: checkboxFormSchema })
-          .action(async ({ input }) => {
-            return {
-              name: input.name,
-              isPrivate: input.isPrivate,
-              tagCount: input.tags.length,
-              tags: input.tags,
-            };
-          })
-          .craft();
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+            })
+            .schemas({ inputSchema: checkboxFormSchema })
+            .handler(async ({ input }) => {
+              return {
+                name: input.name,
+                isPrivate: input.isPrivate,
+                tagCount: input.tags.length,
+                tags: input.tags,
+              };
+            }),
+        );
 
         const formData = new FormData();
         formData.append("name", "duplicate-test");
@@ -1252,15 +1306,17 @@ describe("Enhanced FormData Support", () => {
           optionalFile: zfd.file().optional(),
         });
 
-        const action = create({
-          useActionState: true,
-          validationErrorFormat: "nested",
-        })
-          .schemas({ inputSchema: requiredFileSchema })
-          .action(async ({ input }) => {
-            return input;
-          })
-          .craft();
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+              validationErrorFormat: "nested",
+            })
+            .schemas({ inputSchema: requiredFileSchema })
+            .handler(async ({ input }) => {
+              return input;
+            }),
+        );
 
         // FormData without the required file
         const formData = new FormData();
@@ -1290,22 +1346,24 @@ describe("Enhanced FormData Support", () => {
           data: zfd.repeatableOfType(zfd.text()),
         });
 
-        const action = create({
-          useActionState: true,
-        })
-          .schemas({ inputSchema: manyFieldsSchema })
-          .action(async ({ input }) => {
-            return {
-              title: input.title,
-              fieldCount: input.data.length,
-              totalLength: input.data.join("").length,
-              averageLength:
-                input.data.length > 0
-                  ? input.data.join("").length / input.data.length
-                  : 0,
-            };
-          })
-          .craft();
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+            })
+            .schemas({ inputSchema: manyFieldsSchema })
+            .handler(async ({ input }) => {
+              return {
+                title: input.title,
+                fieldCount: input.data.length,
+                totalLength: input.data.join("").length,
+                averageLength:
+                  input.data.length > 0
+                    ? input.data.join("").length / input.data.length
+                    : 0,
+              };
+            }),
+        );
 
         const formData = new FormData();
         formData.append("title", "Many Fields Test");
@@ -1342,22 +1400,24 @@ describe("Enhanced FormData Support", () => {
           attachments: zfd.repeatableOfType(zfd.file()),
         });
 
-        const action = create({
-          useActionState: true,
-        })
-          .schemas({ inputSchema: complexSchema })
-          .action(async ({ input }) => {
-            return {
-              userName: input.userName,
-              userEmail: input.userEmail,
-              bio: input.userBio,
-              theme: input.theme,
-              notifications: input.notifications,
-              privacyLevel: input.privacyLevel,
-              attachmentCount: input.attachments.length,
-            };
-          })
-          .craft();
+        const action = craft((action) =>
+          action
+            .config({
+              useActionState: true,
+            })
+            .schemas({ inputSchema: complexSchema })
+            .handler(async ({ input }) => {
+              return {
+                userName: input.userName,
+                userEmail: input.userEmail,
+                bio: input.userBio,
+                theme: input.theme,
+                notifications: input.notifications,
+                privacyLevel: input.privacyLevel,
+                attachmentCount: input.attachments.length,
+              };
+            }),
+        );
 
         const formData = new FormData();
         formData.append("userName", "Complex User");
@@ -1392,17 +1452,19 @@ describe("Enhanced FormData Support", () => {
 
     describe("React Server Action Integration", () => {
       it("should filter out React's internal $ACTION properties from values", async () => {
-        const action = create({ useActionState: true })
-          .schemas({
-            inputSchema: zfd.formData({
-              name: zfd.text(),
-              email: zfd.text(),
+        const action = craft((action) =>
+          action
+            .config({ useActionState: true })
+            .schemas({
+              inputSchema: zfd.formData({
+                name: zfd.text(),
+                email: zfd.text(),
+              }),
+            })
+            .handler(async ({ input }) => {
+              return { user: { name: input.name, email: input.email } };
             }),
-          })
-          .action(async ({ input }) => {
-            return { user: { name: input.name, email: input.email } };
-          })
-          .craft();
+        );
 
         // Create FormData with React's internal properties (as React would add them)
         const formData = new FormData();
@@ -1436,10 +1498,12 @@ describe("Enhanced FormData Support", () => {
           email: zfd.text(),
         });
 
-        const action = create({ useActionState: true })
-          .schemas({ inputSchema: schema })
-          .action(async ({ input }) => input)
-          .craft();
+        const action = craft((action) =>
+          action
+            .config({ useActionState: true })
+            .schemas({ inputSchema: schema })
+            .handler(async ({ input }) => input),
+        );
 
         const formData = new FormData();
         formData.append("name", "John"); // missing email to trigger validation error

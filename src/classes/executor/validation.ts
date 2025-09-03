@@ -1,24 +1,23 @@
-import { standardParse } from "../standard-schema.js";
-import type {
-  CrafterConfig,
-  CrafterSchemas,
-  CrafterErrors,
-} from "../types/config.js";
-import { INTERNAL_ERROR_TYPES, EXTERNAL_ERROR_TYPES } from "../types/errors.js";
+import { standardParse } from "../../standard-schema.js";
+import type { Config, Schemas, Errors } from "../../types/builder.js";
+import {
+  INTERNAL_ERROR_TYPES,
+  EXTERNAL_ERROR_TYPES,
+} from "../../types/errors.js";
 import type {
   AllPossibleErrors,
   InferInputValidationErrorFormat,
   InferBindArgsValidationErrorFormat,
   InferOutputValidationErrorFormat,
-} from "../types/errors.js";
-import type { Result } from "../types/result.js";
-import { ok, err } from "../types/result.js";
+} from "../../types/errors.js";
+import type { Result } from "../../types/result.js";
+import { ok, err } from "../../types/result.js";
 import type {
   InferValidatedInput,
   InferRawInput,
   InferValidatedBindArgs,
   InferRawBindArgs,
-} from "../types/schemas.js";
+} from "../../types/schemas.js";
 import {
   createValidationError,
   createInternalLogicError,
@@ -29,13 +28,15 @@ import {
  * Validate input using the configured input schema.
  */
 export async function validateInput<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
 >(
   schemas: TSchemas,
   config: TConfig,
   rawInput: InferRawInput<TSchemas> | undefined,
+  actionId: string,
+  actionName?: string,
 ): Promise<
   Result<
     InferValidatedInput<TSchemas>,
@@ -43,7 +44,7 @@ export async function validateInput<
   >
 > {
   if (!schemas.inputSchema) {
-    return ok(undefined as InferValidatedInput<TSchemas>);
+    return ok(undefined as InferValidatedInput<TSchemas>, actionId);
   }
 
   const result = await standardParse(schemas.inputSchema, rawInput);
@@ -58,23 +59,24 @@ export async function validateInput<
       EXTERNAL_ERROR_TYPES.INPUT_VALIDATION,
       "Input validation failed",
       baseError,
+      actionName,
     );
 
-    return err(inputValidationError) as Result<
+    return err(inputValidationError, actionId) as Result<
       never,
       AllPossibleErrors<TErrors, TConfig, TSchemas>
     >;
   }
 
   if (!result.issues && "value" in result) {
-    return ok(result.value as InferValidatedInput<TSchemas>);
+    return ok(result.value as InferValidatedInput<TSchemas>, actionId);
   }
 
   // Should never happen
   const logicErr = createInternalLogicError(
     "Unexpected validation state in input validation: neither success nor failure",
   );
-  return err(logicErr) as Result<
+  return err(logicErr, actionId) as Result<
     never,
     AllPossibleErrors<TErrors, TConfig, TSchemas>
   >;
@@ -84,13 +86,15 @@ export async function validateInput<
  * Validate bound arguments using configured bind schemas.
  */
 export async function validateBindArgs<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
 >(
   schemas: TSchemas,
   config: TConfig,
   bindArgs: InferRawBindArgs<TSchemas>,
+  actionId: string,
+  actionName?: string,
 ): Promise<
   Result<
     InferValidatedBindArgs<TSchemas>,
@@ -98,7 +102,7 @@ export async function validateBindArgs<
   >
 > {
   if (!schemas.bindSchemas) {
-    return ok([] as InferValidatedBindArgs<TSchemas>);
+    return ok([] as InferValidatedBindArgs<TSchemas>, actionId);
   }
 
   const validated: unknown[] = [];
@@ -118,9 +122,10 @@ export async function validateBindArgs<
         EXTERNAL_ERROR_TYPES.BIND_ARGS_VALIDATION,
         "Bind arguments validation failed",
         baseError,
+        actionName,
       );
 
-      return err(bindError) as Result<
+      return err(bindError, actionId) as Result<
         never,
         AllPossibleErrors<TErrors, TConfig, TSchemas>
       >;
@@ -131,24 +136,26 @@ export async function validateBindArgs<
     }
   }
 
-  return ok(validated as InferValidatedBindArgs<TSchemas>);
+  return ok(validated as InferValidatedBindArgs<TSchemas>, actionId);
 }
 
 /**
  * Validate action output using configured output schema.
  */
 export async function validateOutput<
-  TConfig extends CrafterConfig,
-  TSchemas extends CrafterSchemas,
-  TErrors extends CrafterErrors,
+  TConfig extends Config,
+  TSchemas extends Schemas,
+  TErrors extends Errors,
   TData,
 >(
   schemas: TSchemas,
   config: TConfig,
   data: TData,
+  actionId: string,
+  actionName?: string,
 ): Promise<Result<TData, AllPossibleErrors<TErrors, TConfig, TSchemas>>> {
   if (!schemas.outputSchema) {
-    return ok(data);
+    return ok(data, actionId);
   }
 
   const result = await standardParse(schemas.outputSchema, data);
@@ -163,22 +170,23 @@ export async function validateOutput<
       INTERNAL_ERROR_TYPES.OUTPUT_VALIDATION,
       "Output validation failed",
       baseError,
+      actionName,
     );
 
-    return err(outputError) as Result<
+    return err(outputError, actionId) as Result<
       never,
       AllPossibleErrors<TErrors, TConfig, TSchemas>
     >;
   }
 
   if (!result.issues && "value" in result) {
-    return ok(result.value as TData);
+    return ok(result.value as TData, actionId);
   }
 
   const logicErr = createInternalLogicError(
     "Unexpected validation state in output validation: neither success nor failure",
   );
-  return err(logicErr) as Result<
+  return err(logicErr, actionId) as Result<
     never,
     AllPossibleErrors<TErrors, TConfig, TSchemas>
   >;

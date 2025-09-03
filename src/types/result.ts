@@ -9,9 +9,17 @@
  */
 
 /** A successful result containing a value of type T */
-export type Ok<T> = { readonly type: "ok"; readonly value: T };
+export type Ok<T> = {
+  readonly type: "ok";
+  readonly value: T;
+  readonly __ac_id: string;
+};
 /** A failed result containing an error of type E */
-export type Err<E> = { readonly type: "err"; readonly error: E };
+export type Err<E> = {
+  readonly type: "err";
+  readonly error: E;
+  readonly __ac_id: string;
+};
 /**
  * A Result represents an operation that can either succeed (Ok) or fail (Err).
  * This is a serializable alternative to throwing exceptions.
@@ -20,32 +28,66 @@ export type Result<T, E> = Ok<T> | Err<E>;
 
 /**
  * Creates a successful result.
- * @param value The success value
+ * @param value The success value (optional)
+ * @param actionId The action ID that created this result (optional, will be set to "unknown" if not provided)
  * @returns Ok result containing the value
  */
-export function ok<T>(value: T): Ok<T>;
-/**
- * Creates a successful result with no value.
- * @returns Ok result with void
- */
-export function ok(): Ok<void>;
-export function ok<T = void>(value?: T): Ok<T extends void ? void : T> {
-  return { type: "ok", value: value } as Ok<T extends void ? void : T>;
+export function ok<T>(value?: T, actionId?: string): Ok<T>;
+export function ok<T = void>(
+  valueOrActionId?: T | string,
+  actionId?: string,
+): Ok<T extends void ? void : T> {
+  // Handle overloads: ok() vs ok(value) vs ok(value, actionId)
+  if (arguments.length === 0) {
+    // ok() - no arguments
+    return { type: "ok", value: undefined, __ac_id: "unknown" } as Ok<
+      T extends void ? void : T
+    >;
+  } else if (arguments.length === 1) {
+    // ok(value) - single argument treated as value (including strings)
+    return { type: "ok", value: valueOrActionId, __ac_id: "unknown" } as Ok<
+      T extends void ? void : T
+    >;
+  } else {
+    // ok(value, actionId) - two arguments
+    return {
+      type: "ok",
+      value: valueOrActionId,
+      __ac_id: actionId || "unknown",
+    } as Ok<T extends void ? void : T>;
+  }
 }
 
 /**
  * Creates a failed result.
- * @param error The error value
+ * @param error The error value (optional)
+ * @param actionId The action ID that created this result (optional, will be set to "unknown" if not provided)
  * @returns Err result containing the error
  */
-export function err<E>(error: E): Err<E>;
-/**
- * Creates a failed result with no error value.
- * @returns Err result with void
- */
-export function err(): Err<void>;
-export function err<E = void>(error?: E): Err<E extends void ? void : E> {
-  return { type: "err", error: error } as Err<E extends void ? void : E>;
+export function err<E>(error?: E, actionId?: string): Err<E>;
+export function err<E = void>(
+  errorOrActionId?: E | string,
+  actionId?: string,
+): Err<E extends void ? void : E> {
+  // Handle overloads: err() vs err(error) vs err(error, actionId)
+  if (arguments.length === 0) {
+    // err() - no arguments
+    return { type: "err", error: undefined, __ac_id: "unknown" } as Err<
+      E extends void ? void : E
+    >;
+  } else if (arguments.length === 1) {
+    // err(error) - single argument treated as error (including strings)
+    return { type: "err", error: errorOrActionId, __ac_id: "unknown" } as Err<
+      E extends void ? void : E
+    >;
+  } else {
+    // err(error, actionId) - two arguments
+    return {
+      type: "err",
+      error: errorOrActionId,
+      __ac_id: actionId || "unknown",
+    } as Err<E extends void ? void : E>;
+  }
 }
 
 /**

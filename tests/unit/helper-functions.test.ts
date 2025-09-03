@@ -1,4 +1,4 @@
-import { initial, create } from "../../src/actioncraft";
+import { initial, craft } from "../../src/index";
 import {
   ok,
   err,
@@ -8,6 +8,7 @@ import {
   isResultOk,
   isResultErr,
 } from "../../src/types/result";
+import { getActionId } from "../../src/utils";
 import { describe, expect, it } from "../setup";
 
 describe("Helper Functions", () => {
@@ -104,11 +105,12 @@ describe("Helper Functions", () => {
 
   describe("initial() helper", () => {
     it("should return a failure state for a fresh useActionState action", () => {
-      const action = create({ useActionState: true })
-        .action(async () => {
+      const action = craft((action) =>
+        action.config({ useActionState: true }).handler(async () => {
           return null;
-        })
-        .craft();
+        }),
+      );
+      const actionId = getActionId(action);
       const initialState = initial(action);
 
       expect(initialState).toEqual({
@@ -118,15 +120,16 @@ describe("Helper Functions", () => {
           message: "Action has not been executed yet",
         },
         values: undefined,
+        __ac_id: actionId,
       });
     });
 
     it("should return the same structure every time for the same action", () => {
-      const action = create({ useActionState: true })
-        .action(async () => {
+      const action = craft((action) =>
+        action.config({ useActionState: true }).handler(async () => {
           return null;
-        })
-        .craft();
+        }),
+      );
       const state1 = initial(action);
       const state2 = initial(action);
 
@@ -134,11 +137,11 @@ describe("Helper Functions", () => {
     });
 
     it("should return a consistent structure", () => {
-      const action = create({ useActionState: true })
-        .action(async () => {
+      const action = craft((action) =>
+        action.config({ useActionState: true }).handler(async () => {
           return null;
-        })
-        .craft();
+        }),
+      );
       const state = initial(action);
 
       expect(state.success).toBe(false);
@@ -152,11 +155,11 @@ describe("Helper Functions", () => {
     });
 
     it("should be compatible with useActionState previousState type", () => {
-      const action = create({ useActionState: true })
-        .action(async () => {
+      const action = craft((action) =>
+        action.config({ useActionState: true }).handler(async () => {
           return null;
-        })
-        .craft();
+        }),
+      );
       const initialState = initial(action);
 
       expect(initialState.success).toBe(false);
@@ -169,12 +172,12 @@ describe("Helper Functions", () => {
   });
 
   describe("New API Integration Tests", () => {
-    it("should handle raw data returns in actions", async () => {
-      const action = create()
-        .action(async () => {
+    it("should handle raw data returns in handlers", async () => {
+      const action = craft((action) =>
+        action.handler(async () => {
           return { name: "John", age: 30 };
-        })
-        .craft();
+        }),
+      );
 
       const result = await action();
 
@@ -184,18 +187,14 @@ describe("Helper Functions", () => {
       }
     });
 
-    it("should handle primitive data returns in actions", async () => {
-      const stringAction = create()
-        .action(async () => "hello world")
-        .craft();
+    it("should handle primitive data returns in handlers", async () => {
+      const stringAction = craft((action) =>
+        action.handler(async () => "hello world"),
+      );
 
-      const numberAction = create()
-        .action(async () => 42)
-        .craft();
+      const numberAction = craft((action) => action.handler(async () => 42));
 
-      const booleanAction = create()
-        .action(async () => true)
-        .craft();
+      const booleanAction = craft((action) => action.handler(async () => true));
 
       const stringResult = await stringAction();
       const numberResult = await numberAction();
@@ -206,19 +205,20 @@ describe("Helper Functions", () => {
       expect(booleanResult.success && booleanResult.data).toBe(true);
     });
 
-    it("should handle error function calls in actions", async () => {
-      const action = create()
-        .errors({
-          customError: (message: string) =>
-            ({
-              type: "CUSTOM_ERROR",
-              message,
-            }) as const,
-        })
-        .action(async ({ errors }) => {
-          return errors.customError("Something went wrong");
-        })
-        .craft();
+    it("should handle error function calls in handlers", async () => {
+      const action = craft((action) =>
+        action
+          .errors({
+            customError: (message: string) =>
+              ({
+                type: "CUSTOM_ERROR",
+                message,
+              }) as const,
+          })
+          .handler(async ({ errors }) => {
+            return errors.customError("Something went wrong");
+          }),
+      );
 
       const result = await action();
 
@@ -231,18 +231,18 @@ describe("Helper Functions", () => {
       }
     });
 
-    it("should handle manual Result objects in actions", async () => {
-      const successAction = create()
-        .action(async () => {
+    it("should handle manual Result objects in handlers", async () => {
+      const successAction = craft((action) =>
+        action.handler(async () => {
           return ok({ data: "success" });
-        })
-        .craft();
+        }),
+      );
 
-      const errorAction = create()
-        .action(async () => {
+      const errorAction = craft((action) =>
+        action.handler(async () => {
           return err({ type: "MANUAL_ERROR", message: "failed" } as const);
-        })
-        .craft();
+        }),
+      );
 
       const successResult = await successAction();
       const errorResult = await errorAction();
@@ -256,7 +256,7 @@ describe("Helper Functions", () => {
       });
     });
 
-    it("should work with mixed return types in different actions", async () => {
+    it("should work with mixed return types in different handlers", async () => {
       const errors = {
         validationError: (field: string) =>
           ({
@@ -266,22 +266,21 @@ describe("Helper Functions", () => {
       };
 
       // Raw data return
-      const action1 = create()
-        .errors(errors)
-        .action(async () => ({ userId: 123 }))
-        .craft();
+      const action1 = craft((action) =>
+        action.errors(errors).handler(async () => ({ userId: 123 })),
+      );
 
       // Error function return
-      const action2 = create()
-        .errors(errors)
-        .action(async ({ errors }) => errors.validationError("email"))
-        .craft();
+      const action2 = craft((action) =>
+        action
+          .errors(errors)
+          .handler(async ({ errors }) => errors.validationError("email")),
+      );
 
       // Manual Result return
-      const action3 = create()
-        .errors(errors)
-        .action(async () => ok("manual success"))
-        .craft();
+      const action3 = craft((action) =>
+        action.errors(errors).handler(async () => ok("manual success")),
+      );
 
       const [result1, result2, result3] = await Promise.all([
         action1(),
@@ -295,11 +294,11 @@ describe("Helper Functions", () => {
     });
 
     it("should properly handle undefined returns (implicit return error)", async () => {
-      const action = create()
-        .action(async () => {
+      const action = craft((action) =>
+        action.handler(async () => {
           // Implicit return undefined
-        })
-        .craft();
+        }),
+      );
 
       const result = await action();
 
@@ -310,24 +309,18 @@ describe("Helper Functions", () => {
     });
 
     it("should handle falsy values as valid data", async () => {
-      const zeroAction = create()
-        .action(async () => 0)
-        .craft();
-      const emptyStringAction = create()
-        .action(async () => "")
-        .craft();
-      const falseAction = create()
-        .action(async () => false)
-        .craft();
-      const nullAction = create()
-        .action(async () => null)
-        .craft();
-      const emptyArrayAction = create()
-        .action(async () => [])
-        .craft();
-      const emptyObjectAction = create()
-        .action(async () => ({}))
-        .craft();
+      const zeroAction = craft((action) => action.handler(async () => 0));
+      const emptyStringAction = craft((action) =>
+        action.handler(async () => ""),
+      );
+      const falseAction = craft((action) => action.handler(async () => false));
+      const nullAction = craft((action) => action.handler(async () => null));
+      const emptyArrayAction = craft((action) =>
+        action.handler(async () => []),
+      );
+      const emptyObjectAction = craft((action) =>
+        action.handler(async () => ({})),
+      );
 
       const results = await Promise.all([
         zeroAction(),
@@ -348,20 +341,20 @@ describe("Helper Functions", () => {
     });
 
     it("should handle arrays and complex nested data", async () => {
-      const arrayAction = create()
-        .action(async () => [1, 2, { nested: true }])
-        .craft();
+      const arrayAction = craft((action) =>
+        action.handler(async () => [1, 2, { nested: true }]),
+      );
 
-      const complexAction = create()
-        .action(async () => ({
+      const complexAction = craft((action) =>
+        action.handler(async () => ({
           users: [
             { id: 1, name: "John" },
             { id: 2, name: "Jane" },
           ],
           meta: { total: 2, page: 1 },
           features: { admin: true, beta: false },
-        }))
-        .craft();
+        })),
+      );
 
       const arrayResult = await arrayAction();
       const complexResult = await complexAction();
@@ -382,11 +375,11 @@ describe("Helper Functions", () => {
     });
 
     it("should handle thrown errors correctly", async () => {
-      const throwingAction = create()
-        .action(async () => {
+      const throwingAction = craft((action) =>
+        action.handler(async () => {
           throw new Error("Something went wrong");
-        })
-        .craft();
+        }),
+      );
 
       const result = await throwingAction();
 
@@ -397,13 +390,13 @@ describe("Helper Functions", () => {
     });
 
     it("should not confuse malformed objects with Results", async () => {
-      const malformedAction1 = create()
-        .action(async () => ({ type: "ok", data: "not a result" }))
-        .craft();
+      const malformedAction1 = craft((action) =>
+        action.handler(async () => ({ type: "ok", data: "not a result" })),
+      );
 
-      const malformedAction2 = create()
-        .action(async () => ({ type: "err", message: "not a result" }))
-        .craft();
+      const malformedAction2 = craft((action) =>
+        action.handler(async () => ({ type: "err", message: "not a result" })),
+      );
 
       const result1 = await malformedAction1();
       const result2 = await malformedAction2();
@@ -430,22 +423,23 @@ describe("Helper Functions", () => {
       let capturedSuccessData: unknown;
       let capturedSettledResult: unknown;
 
-      const action = create()
-        .action(async () => {
-          return { value: 42, name: "test" };
-        })
-        .callbacks({
-          onSuccess: async ({ data }) => {
-            capturedSuccessData = data;
-            // This should properly infer the type
-            const valueTest: number = data.value; // Should be properly typed
-            expect(valueTest).toBe(42);
-          },
-          onSettled: async ({ result }) => {
-            capturedSettledResult = result;
-          },
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .handler(async () => {
+            return { value: 42, name: "test" };
+          })
+          .callbacks({
+            onSuccess: async ({ data }) => {
+              capturedSuccessData = data;
+              // This should properly infer the type
+              const valueTest: number = data.value; // Should be properly typed
+              expect(valueTest).toBe(42);
+            },
+            onSettled: async ({ result }) => {
+              capturedSettledResult = result;
+            },
+          }),
+      );
 
       const result = await action();
 
@@ -454,6 +448,7 @@ describe("Helper Functions", () => {
       expect(capturedSettledResult).toEqual({
         success: true,
         data: { value: 42, name: "test" },
+        __ac_id: expect.any(String),
       });
     });
 
@@ -461,26 +456,27 @@ describe("Helper Functions", () => {
       let capturedErrorData: unknown;
       let capturedSettledResult: unknown;
 
-      const action = create()
-        .errors({
-          testError: (message: string) =>
-            ({
-              type: "TEST_ERROR",
-              message,
-            }) as const,
-        })
-        .action(async ({ errors }) => {
-          return errors.testError("callback test");
-        })
-        .callbacks({
-          onError: async ({ error }) => {
-            capturedErrorData = error;
-          },
-          onSettled: async ({ result }) => {
-            capturedSettledResult = result;
-          },
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .errors({
+            testError: (message: string) =>
+              ({
+                type: "TEST_ERROR",
+                message,
+              }) as const,
+          })
+          .handler(async ({ errors }) => {
+            return errors.testError("callback test");
+          })
+          .callbacks({
+            onError: async ({ error }) => {
+              capturedErrorData = error;
+            },
+            onSettled: async ({ result }) => {
+              capturedSettledResult = result;
+            },
+          }),
+      );
 
       const result = await action();
 
@@ -492,6 +488,7 @@ describe("Helper Functions", () => {
       expect(capturedSettledResult).toEqual({
         success: false,
         error: { type: "TEST_ERROR", message: "callback test" },
+        __ac_id: expect.any(String),
       });
     });
 
@@ -504,30 +501,31 @@ describe("Helper Functions", () => {
 
       let capturedData: UserData | undefined;
 
-      const action = create()
-        .action(async (): Promise<UserData> => {
-          return {
-            id: 123,
-            name: "John",
-            settings: { theme: "dark", notifications: true },
-          };
-        })
-        .callbacks({
-          onSuccess: async ({ data }) => {
-            capturedData = data;
-            // These should all be properly typed
-            const idTest: number = data.id;
-            const nameTest: string = data.name;
-            const themeTest: string = data.settings.theme;
-            const notificationsTest: boolean = data.settings.notifications;
+      const action = craft((action) =>
+        action
+          .handler(async (): Promise<UserData> => {
+            return {
+              id: 123,
+              name: "John",
+              settings: { theme: "dark", notifications: true },
+            };
+          })
+          .callbacks({
+            onSuccess: async ({ data }) => {
+              capturedData = data;
+              // These should all be properly typed
+              const idTest: number = data.id;
+              const nameTest: string = data.name;
+              const themeTest: string = data.settings.theme;
+              const notificationsTest: boolean = data.settings.notifications;
 
-            expect(idTest).toBe(123);
-            expect(nameTest).toBe("John");
-            expect(themeTest).toBe("dark");
-            expect(notificationsTest).toBe(true);
-          },
-        })
-        .craft();
+              expect(idTest).toBe(123);
+              expect(nameTest).toBe("John");
+              expect(themeTest).toBe("dark");
+              expect(notificationsTest).toBe(true);
+            },
+          }),
+      );
 
       await action();
 
@@ -542,19 +540,20 @@ describe("Helper Functions", () => {
       let capturedData: unknown;
 
       // This should work without explicit type annotations
-      const action = create()
-        .action(async () => {
-          return { value: 42, message: "test" };
-        })
-        .callbacks({
-          onSuccess: async ({ data }) => {
-            capturedData = data;
-            // TypeScript should infer the correct shape
-            expect(data.value).toBe(42);
-            expect(data.message).toBe("test");
-          },
-        })
-        .craft();
+      const action = craft((action) =>
+        action
+          .handler(async () => {
+            return { value: 42, message: "test" };
+          })
+          .callbacks({
+            onSuccess: async ({ data }) => {
+              capturedData = data;
+              // TypeScript should infer the correct shape
+              expect(data.value).toBe(42);
+              expect(data.message).toBe("test");
+            },
+          }),
+      );
 
       await action();
       expect(capturedData).toEqual({ value: 42, message: "test" });

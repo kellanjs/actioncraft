@@ -49,7 +49,7 @@
     "ci": "npm run lint && npm run build && npm run check-format && npm run check-exports && npm run test"
   },
   "peerDependencies": {
-    "next": "^15.0.0",
+    "next": "^15.0.0 || ^16.0.0",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
@@ -59,16 +59,16 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
-    "@eslint/js": "^9.30.1",
+    "@eslint/js": "^9.39.0",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
-    "eslint": "^9.30.1",
-    "next": "^15.0.0",
+    "eslint": "^9.39.0",
+    "next": "^16.0.0",
     "prettier": "^3.6.2",
-    "react": "^19.0.0",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.35.1",
-    "vitest": "^3.2.4",
-    "zod": "^4.1.5",
+    "react": "^19.2.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2",
+    "vitest": "^4.0.6",
+    "zod": "^4.1.12",
     "zod-form-data": "^3.0.1"
   }
 }

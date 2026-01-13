@@ -1,41 +1,34 @@
-import { craft, initial } from "../../../src/index";
-import { getActionId } from "../../../src/utils";
-import {
-  stringSchema,
-  numberSchema,
-  alwaysFailSchema,
-} from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
-import { z } from "zod";
+import { actioncraft } from "../../../src/index";
+import { stringSchema } from "../../__fixtures__/schemas";
+import { describe, it, expect } from "vitest";
 
 describe("Custom Errors", () => {
   it("should handle custom errors defined with .errors()", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: stringSchema })
-        .errors({
-          notFound: (id: string) =>
-            ({
-              type: "NOT_FOUND",
-              id,
-              message: `Resource with ID ${id} not found`,
-            }) as const,
-          unauthorized: () =>
-            ({
-              type: "UNAUTHORIZED",
-              message: "Access denied",
-            }) as const,
-        })
-        .handler(async ({ input, errors }) => {
-          if (input === "missing") {
-            return errors.notFound(input as string);
-          }
-          if (input === "forbidden") {
-            return errors.unauthorized();
-          }
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: stringSchema })
+      .errors({
+        notFound: (id: string) =>
+          ({
+            type: "NOT_FOUND",
+            id,
+            message: `Resource with ID ${id} not found`,
+          }) as const,
+        unauthorized: () =>
+          ({
+            type: "UNAUTHORIZED",
+            message: "Access denied",
+          }) as const,
+      })
+      .handler(async ({ input, errors }) => {
+        if (input === "missing") {
+          return errors.notFound(input as string);
+        }
+        if (input === "forbidden") {
+          return errors.unauthorized();
+        }
+        return input;
+      })
+      .build();
 
     // Test notFound error
     const notFoundResult = await action("missing");
@@ -67,22 +60,21 @@ describe("Custom Errors", () => {
   });
 
   it("should infer types of custom errors correctly", async () => {
-    const action = craft((action) =>
-      action
-        .errors({
-          validationError: (field: string, value: unknown) =>
-            ({
-              type: "VALIDATION_ERROR",
-              field,
-              value,
-              timestamp: Date.now(),
-            }) as const,
-        })
-        .handler(async ({ errors }) => {
-          // TypeScript should infer the correct parameter types
-          return errors.validationError("email", "invalid@");
-        }),
-    );
+    const action = actioncraft()
+      .errors({
+        validationError: (field: string, value: unknown) =>
+          ({
+            type: "VALIDATION_ERROR",
+            field,
+            value,
+            timestamp: Date.now(),
+          }) as const,
+      })
+      .handler(async ({ errors }) => {
+        // TypeScript should infer the correct parameter types
+        return errors.validationError("email", "invalid@");
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);
@@ -101,34 +93,33 @@ describe("Custom Errors", () => {
   });
 
   it("should handle complex custom error structures", async () => {
-    const action = craft((action) =>
-      action
-        .errors({
-          businessLogicError: (
-            code: number,
-            details: Record<string, unknown>,
-            metadata?: { userId?: string; timestamp?: number },
-          ) =>
-            ({
-              type: "BUSINESS_LOGIC_ERROR",
-              code,
-              details,
-              metadata: {
-                userId: metadata?.userId || "anonymous",
-                timestamp: metadata?.timestamp || Date.now(),
-                severity:
-                  code >= 500 ? "critical" : code >= 400 ? "warning" : "info",
-              },
-            }) as const,
-        })
-        .handler(async ({ errors }) => {
-          return errors.businessLogicError(
-            403,
-            { operation: "deleteUser", reason: "insufficient_permissions" },
-            { userId: "user123" },
-          );
-        }),
-    );
+    const action = actioncraft()
+      .errors({
+        businessLogicError: (
+          code: number,
+          details: Record<string, unknown>,
+          metadata?: { userId?: string; timestamp?: number },
+        ) =>
+          ({
+            type: "BUSINESS_LOGIC_ERROR",
+            code,
+            details,
+            metadata: {
+              userId: metadata?.userId || "anonymous",
+              timestamp: metadata?.timestamp || Date.now(),
+              severity:
+                code >= 500 ? "critical" : code >= 400 ? "warning" : "info",
+            },
+          }) as const,
+      })
+      .handler(async ({ errors }) => {
+        return errors.businessLogicError(
+          403,
+          { operation: "deleteUser", reason: "insufficient_permissions" },
+          { userId: "user123" },
+        );
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);
@@ -151,43 +142,42 @@ describe("Custom Errors", () => {
   });
 
   it("should handle multiple custom error types in one action", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: stringSchema })
-        .errors({
-          networkError: (url: string, status: number) =>
-            ({
-              type: "NETWORK_ERROR",
-              url,
-              status,
-              retryable: status >= 500,
-            }) as const,
-          parseError: (data: string, position: number) =>
-            ({
-              type: "PARSE_ERROR",
-              data,
-              position,
-              suggestion: "Check data format",
-            }) as const,
-          authError: () =>
-            ({
-              type: "AUTH_ERROR",
-              message: "Authentication required",
-            }) as const,
-        })
-        .handler(async ({ input, errors }) => {
-          if (input.startsWith("net:")) {
-            return errors.networkError("https://api.example.com", 502);
-          }
-          if (input.startsWith("parse:")) {
-            return errors.parseError(input, 10);
-          }
-          if (input.startsWith("auth:")) {
-            return errors.authError();
-          }
-          return `Processed: ${input}`;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: stringSchema })
+      .errors({
+        networkError: (url: string, status: number) =>
+          ({
+            type: "NETWORK_ERROR",
+            url,
+            status,
+            retryable: status >= 500,
+          }) as const,
+        parseError: (data: string, position: number) =>
+          ({
+            type: "PARSE_ERROR",
+            data,
+            position,
+            suggestion: "Check data format",
+          }) as const,
+        authError: () =>
+          ({
+            type: "AUTH_ERROR",
+            message: "Authentication required",
+          }) as const,
+      })
+      .handler(async ({ input, errors }) => {
+        if (input.startsWith("net:")) {
+          return errors.networkError("https://api.example.com", 502);
+        }
+        if (input.startsWith("parse:")) {
+          return errors.parseError(input, 10);
+        }
+        if (input.startsWith("auth:")) {
+          return errors.authError();
+        }
+        return `Processed: ${input}`;
+      })
+      .build();
 
     // Test network error
     const networkResult = await action("net:test");
@@ -220,18 +210,17 @@ describe("Custom Errors", () => {
   });
 
   it("should handle errors with no parameters", async () => {
-    const action = craft((action) =>
-      action
-        .errors({
-          simpleError: () =>
-            ({
-              type: "SIMPLE_ERROR",
-            }) as const,
-        })
-        .handler(async ({ errors }) => {
-          return errors.simpleError();
-        }),
-    );
+    const action = actioncraft()
+      .errors({
+        simpleError: () =>
+          ({
+            type: "SIMPLE_ERROR",
+          }) as const,
+      })
+      .handler(async ({ errors }) => {
+        return errors.simpleError();
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);
@@ -241,36 +230,35 @@ describe("Custom Errors", () => {
   });
 
   it("should handle errors with optional parameters", async () => {
-    const action = craft((action) =>
-      action
-        .errors({
-          optionalParamError: (
-            message: string,
-            code?: number,
-            details?: Record<string, unknown>,
-          ) =>
-            ({
-              type: "OPTIONAL_PARAM_ERROR",
-              message,
-              code: code || 500,
-              details: details || {},
-            }) as const,
-        })
-        .handler(async ({ errors }) => {
-          // Test with all parameters
-          if (Math.random() > 0.7) {
-            return errors.optionalParamError("Full error", 400, {
-              extra: "data",
-            });
-          }
-          // Test with minimal parameters
-          if (Math.random() > 0.3) {
-            return errors.optionalParamError("Minimal error");
-          }
-          // Test with partial parameters
-          return errors.optionalParamError("Partial error", 404);
-        }),
-    );
+    const action = actioncraft()
+      .errors({
+        optionalParamError: (
+          message: string,
+          code?: number,
+          details?: Record<string, unknown>,
+        ) =>
+          ({
+            type: "OPTIONAL_PARAM_ERROR",
+            message,
+            code: code || 500,
+            details: details || {},
+          }) as const,
+      })
+      .handler(async ({ errors }) => {
+        // Test with all parameters
+        if (Math.random() > 0.7) {
+          return errors.optionalParamError("Full error", 400, {
+            extra: "data",
+          });
+        }
+        // Test with minimal parameters
+        if (Math.random() > 0.3) {
+          return errors.optionalParamError("Minimal error");
+        }
+        // Test with partial parameters
+        return errors.optionalParamError("Partial error", 404);
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);

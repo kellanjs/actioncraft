@@ -1,10 +1,10 @@
-import { craft, initial } from "../../../src/index";
+import { actioncraft, initial } from "../../../src/index";
 import {
   createFormData,
   userSchema,
   simpleUserSchema,
 } from "../../__fixtures__/schemas";
-import { describe, expect, it } from "../../setup";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { zfd } from "zod-form-data";
 
@@ -12,28 +12,27 @@ describe("Progressive Enhancement", () => {
   describe("Server-Only Form Processing", () => {
     it("should handle FormData submissions without client-side JavaScript", async () => {
       // This simulates a form submission in a browser with JavaScript disabled
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "flattened",
-          })
-          .schemas({
-            inputSchema: zfd.formData({
-              name: zfd.text(z.string().min(1, "Name required")),
-              email: zfd.text(z.string().email("Valid email required")),
-              age: zfd.numeric(z.number().min(18, "Must be 18 or older")),
-            }),
-          })
-          .handler(async ({ input, metadata }) => {
-            return {
-              success: true,
-              processedData: input,
-              wasFormData: metadata.rawInput instanceof FormData,
-              serverProcessed: true,
-            };
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "flattened",
+        })
+        .schemas({
+          inputSchema: zfd.formData({
+            name: zfd.text(z.string().min(1, "Name required")),
+            email: zfd.text(z.string().email("Valid email required")),
+            age: zfd.numeric(z.number().min(18, "Must be 18 or older")),
           }),
-      );
+        })
+        .handler(async ({ input, metadata }) => {
+          return {
+            success: true,
+            processedData: input,
+            wasFormData: metadata.rawInput instanceof FormData,
+            serverProcessed: true,
+          };
+        })
+        .build();
 
       const formData = createFormData({
         name: "Server User",
@@ -53,17 +52,16 @@ describe("Progressive Enhancement", () => {
     });
 
     it("should provide validation errors suitable for server-side rendering", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "flattened",
-          })
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => {
-            return { user: input };
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "flattened",
+        })
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => {
+          return { user: input };
+        })
+        .build();
 
       // Invalid data that would normally be caught by client-side validation
       const invalidData = {
@@ -86,22 +84,21 @@ describe("Progressive Enhancement", () => {
     });
 
     it("should include values field with validated input on successful FormData submission", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({
-            inputSchema: zfd.formData({
-              name: zfd.text(z.string().min(1)),
-              email: zfd.text(z.string().email()),
-              age: zfd.numeric(z.number().min(18)),
-            }),
-          })
-          .handler(async ({ input }) => {
-            return { ok: true, input };
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({
+          inputSchema: zfd.formData({
+            name: zfd.text(z.string().min(1)),
+            email: zfd.text(z.string().email()),
+            age: zfd.numeric(z.number().min(18)),
           }),
-      );
+        })
+        .handler(async ({ input }) => {
+          return { ok: true, input };
+        })
+        .build();
 
       const formData = createFormData({
         name: "Server User",
@@ -123,19 +120,18 @@ describe("Progressive Enhancement", () => {
     });
 
     it("should preserve raw input values on validation error for server-rendered forms", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "flattened",
-          })
-          .schemas({
-            inputSchema: userSchema,
-          })
-          .handler(async ({ input }) => {
-            return { user: input };
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "flattened",
+        })
+        .schemas({
+          inputSchema: userSchema,
+        })
+        .handler(async ({ input }) => {
+          return { user: input };
+        })
+        .build();
 
       const invalidData = {
         name: "",
@@ -158,30 +154,29 @@ describe("Progressive Enhancement", () => {
       // 1. FormData from server-rendered forms (no JS)
       // 2. Regular objects from client-side code (with JS)
 
-      const flexibleAction = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({
-            inputSchema: z.union([
-              userSchema,
-              zfd.formData({
-                name: zfd.text(z.string().min(1, "Name required")),
-                email: zfd.text(z.string().email("Valid email required")),
-                age: zfd.numeric(z.number().min(18, "Must be 18 or older")),
-              }),
-            ]),
-          })
-          .handler(async ({ input, metadata }) => {
-            return {
-              userData: input,
-              inputType:
-                metadata.rawInput instanceof FormData ? "FormData" : "Object",
-              processed: true,
-            };
-          }),
-      );
+      const flexibleAction = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({
+          inputSchema: z.union([
+            userSchema,
+            zfd.formData({
+              name: zfd.text(z.string().min(1, "Name required")),
+              email: zfd.text(z.string().email("Valid email required")),
+              age: zfd.numeric(z.number().min(18, "Must be 18 or older")),
+            }),
+          ]),
+        })
+        .handler(async ({ input, metadata }) => {
+          return {
+            userData: input,
+            inputType:
+              metadata.rawInput instanceof FormData ? "FormData" : "Object",
+            processed: true,
+          };
+        })
+        .build();
 
       // Scenario 1: FormData (server-rendered form)
       const formData = createFormData({
@@ -224,29 +219,28 @@ describe("Progressive Enhancement", () => {
 
   describe("State Management Without JavaScript", () => {
     it("should maintain state across form submissions in server-only environments", async () => {
-      const statefulAction = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: simpleUserSchema })
-          .handler(async ({ input, metadata }) => {
-            const previousState = metadata.prevState;
-            const prevCount =
-              previousState?.success &&
-              typeof previousState.data === "object" &&
-              previousState.data &&
-              "count" in previousState.data
-                ? (previousState.data.count as number)
-                : 0;
+      const statefulAction = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: simpleUserSchema })
+        .handler(async ({ input, metadata }) => {
+          const previousState = metadata.prevState;
+          const prevCount =
+            previousState?.success &&
+            typeof previousState.data === "object" &&
+            previousState.data &&
+            "count" in previousState.data
+              ? (previousState.data.count as number)
+              : 0;
 
-            return {
-              user: input,
-              count: prevCount + 1,
-              timestamp: new Date().toISOString(),
-            };
-          }),
-      );
+          return {
+            user: input,
+            count: prevCount + 1,
+            timestamp: new Date().toISOString(),
+          };
+        })
+        .build();
 
       // First submission
       const firstResult = await statefulAction(initial(statefulAction), {
@@ -274,38 +268,37 @@ describe("Progressive Enhancement", () => {
 
   describe("Server-Side Business Logic", () => {
     it("should handle server-specific validation that client cannot perform", async () => {
-      const serverValidationAction = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userSchema })
-          .errors({
-            serverRejection: (reason: string) => ({
-              type: "SERVER_REJECTION" as const,
-              reason,
-              message: `Server rejected submission: ${reason}`,
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            // Simulate server-side checks that client-side JS cannot perform
-            // e.g., database lookups, external API calls, etc.
-
-            if (input.email === "banned@example.com") {
-              return errors.serverRejection("Email address is banned");
-            }
-
-            if (input.name.toLowerCase().includes("spam")) {
-              return errors.serverRejection("Name contains prohibited content");
-            }
-
-            return {
-              user: input,
-              serverValidated: true,
-              checkedAgainstDatabase: true,
-            };
+      const serverValidationAction = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userSchema })
+        .errors({
+          serverRejection: (reason: string) => ({
+            type: "SERVER_REJECTION" as const,
+            reason,
+            message: `Server rejected submission: ${reason}`,
           }),
-      );
+        })
+        .handler(async ({ input, errors }) => {
+          // Simulate server-side checks that client-side JS cannot perform
+          // e.g., database lookups, external API calls, etc.
+
+          if (input.email === "banned@example.com") {
+            return errors.serverRejection("Email address is banned");
+          }
+
+          if (input.name.toLowerCase().includes("spam")) {
+            return errors.serverRejection("Name contains prohibited content");
+          }
+
+          return {
+            user: input,
+            serverValidated: true,
+            checkedAgainstDatabase: true,
+          };
+        })
+        .build();
 
       // Test server-side rejection
       const bannedEmailResult = await serverValidationAction(
@@ -342,29 +335,28 @@ describe("Progressive Enhancement", () => {
 
   describe("File Upload Progressive Enhancement", () => {
     it("should handle file uploads in server-only context", async () => {
-      const fileUploadAction = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({
-            inputSchema: zfd.formData({
-              title: zfd.text(z.string().min(1, "Title required")),
-              document: zfd.file(z.instanceof(File)),
-            }),
-          })
-          .handler(async ({ input }) => {
-            return {
-              title: input.title,
-              fileInfo: {
-                name: input.document.name,
-                size: input.document.size,
-                type: input.document.type,
-              },
-              processedOnServer: true,
-            };
+      const fileUploadAction = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({
+          inputSchema: zfd.formData({
+            title: zfd.text(z.string().min(1, "Title required")),
+            document: zfd.file(z.instanceof(File)),
           }),
-      );
+        })
+        .handler(async ({ input }) => {
+          return {
+            title: input.title,
+            fileInfo: {
+              name: input.document.name,
+              size: input.document.size,
+              type: input.document.type,
+            },
+            processedOnServer: true,
+          };
+        })
+        .build();
 
       const formData = new FormData();
       formData.append("title", "Test Document");

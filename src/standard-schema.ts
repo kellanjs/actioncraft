@@ -71,7 +71,7 @@ export declare namespace StandardSchemaV1 {
 }
 
 // ============================================================================
-// CUSTOM HELPER TYPES FOR ACTION COMPOSER
+// CUSTOM UTILITY TYPES
 // ============================================================================
 
 /** Infer the input type of a Standard Schema, or a default type if the schema is undefined. */
@@ -97,7 +97,7 @@ export type InferOutputArray<Schemas extends readonly StandardSchemaV1[]> = {
 };
 
 // ============================================================================
-// RUNTIME HELPERS
+// CUSTOM RUNTIME HELPERS
 // ============================================================================
 
 /** Helper function to validate input using a Standard Schema. */
@@ -115,6 +115,7 @@ export function isStandardSchema(value: unknown): value is StandardSchemaV1 {
     value !== null &&
     "~standard" in value &&
     typeof (value as StandardSchemaV1)["~standard"] === "object" &&
+    (value as StandardSchemaV1)["~standard"] !== null &&
     (value as StandardSchemaV1)["~standard"].version === 1
   );
 }

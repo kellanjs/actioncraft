@@ -3,8 +3,7 @@
 // ============================================================================
 
 // Core Functions
-export { craft } from "./classes/craft-builder.js";
-export { action } from "./classes/action-builder.js";
+export { actioncraft } from "./classes/builder.js";
 export { unwrap, throwable, initial, getActionId } from "./utils.js";
 export { ActioncraftError, isActioncraftError } from "./classes/error.js";
 

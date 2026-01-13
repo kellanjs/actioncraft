@@ -1,39 +1,38 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import { stringSchema } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 
 describe("Error Message Validation and Context Preservation (Simplified)", () => {
   describe("Error Message Structure and Content", () => {
     it("should validate error message format and content", async () => {
-      const messageValidationAction = craft((action) =>
-        action
-          .config({ actionName: "messageValidationTest" })
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            formattedError: (
-              code: string,
-              details: string,
-              context?: Record<string, any>,
-            ) => ({
-              type: "FORMATTED_ERROR" as const,
-              code,
-              message: `Error ${code}: ${details}`,
-              details,
-              context: context || {},
-              timestamp: new Date().toISOString(),
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            if (input === "format-test") {
-              return errors.formattedError("E001", "Test error message", {
-                userId: "user123",
-                operation: "test",
-              });
-            }
-            return "success";
+      const messageValidationAction = actioncraft()
+        .config({ actionName: "messageValidationTest" })
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          formattedError: (
+            code: string,
+            details: string,
+            context?: Record<string, any>,
+          ) => ({
+            type: "FORMATTED_ERROR" as const,
+            code,
+            message: `Error ${code}: ${details}`,
+            details,
+            context: context || {},
+            timestamp: new Date().toISOString(),
           }),
-      );
+        })
+        .handler(async ({ input, errors }) => {
+          if (input === "format-test") {
+            return errors.formattedError("E001", "Test error message", {
+              userId: "user123",
+              operation: "test",
+            });
+          }
+          return "success";
+        })
+        .build();
 
       const result = await messageValidationAction("format-test");
       expect(result.success).toBe(false);
@@ -55,35 +54,34 @@ describe("Error Message Validation and Context Preservation (Simplified)", () =>
     });
 
     it("should validate error messages with localization", async () => {
-      const i18nAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: z.object({
-              locale: z.enum(["en", "es"]),
-              field: z.string(),
-            }),
-          })
-          .errors({
-            localizedError: (locale: string, field: string) => {
-              const messages = {
-                en: `Validation failed for field ${field}`,
-                es: `La validación falló para el campo ${field}`,
-              };
-
-              return {
-                type: "LOCALIZED_ERROR" as const,
-                locale,
-                message:
-                  messages[locale as keyof typeof messages] ||
-                  `Error for ${field}`,
-                field,
-              };
-            },
-          })
-          .handler(async ({ input, errors }) => {
-            return errors.localizedError(input.locale, input.field);
+      const i18nAction = actioncraft()
+        .schemas({
+          inputSchema: z.object({
+            locale: z.enum(["en", "es"]),
+            field: z.string(),
           }),
-      );
+        })
+        .errors({
+          localizedError: (locale: string, field: string) => {
+            const messages = {
+              en: `Validation failed for field ${field}`,
+              es: `La validación falló para el campo ${field}`,
+            };
+
+            return {
+              type: "LOCALIZED_ERROR" as const,
+              locale,
+              message:
+                messages[locale as keyof typeof messages] ||
+                `Error for ${field}`,
+              field,
+            };
+          },
+        })
+        .handler(async ({ input, errors }) => {
+          return errors.localizedError(input.locale, input.field);
+        })
+        .build();
 
       // Test English localization
       const enResult = await i18nAction({
@@ -103,32 +101,31 @@ describe("Error Message Validation and Context Preservation (Simplified)", () =>
     });
 
     it("should validate error message sanitization", async () => {
-      const sanitizationAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            sanitizedError: (userInput: string) => {
-              // Simple sanitization for testing
-              const sanitized = userInput
-                .replace(/<script>/gi, "[SCRIPT_REMOVED]")
-                .replace(/javascript:/gi, "[JS_REMOVED]");
+      const sanitizationAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          sanitizedError: (userInput: string) => {
+            // Simple sanitization for testing
+            const sanitized = userInput
+              .replace(/<script>/gi, "[SCRIPT_REMOVED]")
+              .replace(/javascript:/gi, "[JS_REMOVED]");
 
-              return {
-                type: "SANITIZED_ERROR" as const,
-                message: `Invalid input: ${sanitized}`,
-                originalInput: userInput,
-                sanitizedInput: sanitized,
-                containedScript: userInput !== sanitized,
-              };
-            },
-          })
-          .handler(async ({ input, errors }) => {
-            if (input.includes("<script>") || input.includes("javascript:")) {
-              return errors.sanitizedError(input);
-            }
-            return "safe input";
-          }),
-      );
+            return {
+              type: "SANITIZED_ERROR" as const,
+              message: `Invalid input: ${sanitized}`,
+              originalInput: userInput,
+              sanitizedInput: sanitized,
+              containedScript: userInput !== sanitized,
+            };
+          },
+        })
+        .handler(async ({ input, errors }) => {
+          if (input.includes("<script>") || input.includes("javascript:")) {
+            return errors.sanitizedError(input);
+          }
+          return "safe input";
+        })
+        .build();
 
       const maliciousInput = '<script>alert("xss")</script>javascript:void(0)';
       const result = await sanitizationAction(maliciousInput);
@@ -150,43 +147,42 @@ describe("Error Message Validation and Context Preservation (Simplified)", () =>
 
   describe("Error Context Preservation", () => {
     it("should preserve request context across error boundaries", async () => {
-      const contextAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: z.object({
-              userId: z.string(),
-              requestId: z.string(),
-              operation: z.string(),
-            }),
-          })
-          .errors({
-            contextualError: (
-              operation: string,
-              context: Record<string, any>,
-            ) => ({
-              type: "CONTEXTUAL_ERROR" as const,
-              operation,
-              context,
-              timestamp: Date.now(),
-              traceId: `trace-${Date.now()}`,
-            }),
-          })
-          .handler(async ({ input, errors, metadata }) => {
-            const requestContext = {
-              userId: input.userId,
-              requestId: input.requestId,
-              actionId: metadata.actionId,
-              actionName: metadata.actionName,
-              timestamp: Date.now(),
-            };
-
-            if (input.operation === "fail") {
-              return errors.contextualError(input.operation, requestContext);
-            }
-
-            return { success: true, context: requestContext };
+      const contextAction = actioncraft()
+        .schemas({
+          inputSchema: z.object({
+            userId: z.string(),
+            requestId: z.string(),
+            operation: z.string(),
           }),
-      );
+        })
+        .errors({
+          contextualError: (
+            operation: string,
+            context: Record<string, any>,
+          ) => ({
+            type: "CONTEXTUAL_ERROR" as const,
+            operation,
+            context,
+            timestamp: Date.now(),
+            traceId: `trace-${Date.now()}`,
+          }),
+        })
+        .handler(async ({ input, errors, metadata }) => {
+          const requestContext = {
+            userId: input.userId,
+            requestId: input.requestId,
+            actionId: metadata.actionId,
+            actionName: metadata.actionName,
+            timestamp: Date.now(),
+          };
+
+          if (input.operation === "fail") {
+            return errors.contextualError(input.operation, requestContext);
+          }
+
+          return { success: true, context: requestContext };
+        })
+        .build();
 
       const testInput = {
         userId: "user123",
@@ -213,35 +209,34 @@ describe("Error Message Validation and Context Preservation (Simplified)", () =>
     });
 
     it("should preserve error context through nested action calls", async () => {
-      const nestedContextAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            nestedError: (level: number, parentContext?: any) => ({
-              type: "NESTED_ERROR" as const,
+      const nestedContextAction: any = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          nestedError: (level: number, parentContext?: any) => ({
+            type: "NESTED_ERROR" as const,
+            level,
+            parentContext,
+            currentContext: {
+              timestamp: Date.now(),
               level,
-              parentContext,
-              currentContext: {
-                timestamp: Date.now(),
-                level,
-              },
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            if (input === "level-1") {
-              return errors.nestedError(1);
-            }
-
-            if (input === "level-2") {
-              const level1Result = await nestedContextAction("level-1");
-              if (!level1Result.success) {
-                return errors.nestedError(2, level1Result.error);
-              }
-            }
-
-            return "success";
+            },
           }),
-      );
+        })
+        .handler(async ({ input, errors }): Promise<any> => {
+          if (input === "level-1") {
+            return errors.nestedError(1);
+          }
+
+          if (input === "level-2") {
+            const level1Result: any = await nestedContextAction("level-1");
+            if (!level1Result.success) {
+              return errors.nestedError(2, level1Result.error);
+            }
+          }
+
+          return "success";
+        })
+        .build();
 
       const result = await nestedContextAction("level-2");
       expect(result.success).toBe(false);
@@ -258,53 +253,52 @@ describe("Error Message Validation and Context Preservation (Simplified)", () =>
     it("should preserve error context in callback chains", async () => {
       const callbackContexts: any[] = [];
 
-      const callbackContextAction = craft((action) =>
-        action
-          .config({ actionName: "callbackContextTest" })
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            callbackError: (phase: string, context: Record<string, any>) => ({
-              type: "CALLBACK_ERROR" as const,
-              phase,
-              context,
-            }),
-          })
-          .handler(async ({ input, errors, metadata }) => {
-            if (input === "callback-fail") {
-              return errors.callbackError("handler", {
-                actionId: metadata.actionId,
-                actionName: metadata.actionName,
-                input,
-              });
-            }
-            return "success";
-          })
-          .callbacks({
-            onStart: async ({ metadata }) => {
-              callbackContexts.push({
-                phase: "start",
-                actionId: metadata.actionId,
-                actionName: metadata.actionName,
-              });
-            },
-            onError: async ({ error, metadata }) => {
-              callbackContexts.push({
-                phase: "error",
-                actionId: metadata.actionId,
-                actionName: metadata.actionName,
-                errorType: error.type,
-              });
-            },
-            onSettled: async ({ result, metadata }) => {
-              callbackContexts.push({
-                phase: "settled",
-                actionId: metadata.actionId,
-                actionName: metadata.actionName,
-                success: result.success,
-              });
-            },
+      const callbackContextAction = actioncraft()
+        .config({ actionName: "callbackContextTest" })
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          callbackError: (phase: string, context: Record<string, any>) => ({
+            type: "CALLBACK_ERROR" as const,
+            phase,
+            context,
           }),
-      );
+        })
+        .handler(async ({ input, errors, metadata }) => {
+          if (input === "callback-fail") {
+            return errors.callbackError("handler", {
+              actionId: metadata.actionId,
+              actionName: metadata.actionName,
+              input,
+            });
+          }
+          return "success";
+        })
+        .callbacks({
+          onStart: async ({ metadata }) => {
+            callbackContexts.push({
+              phase: "start",
+              actionId: metadata.actionId,
+              actionName: metadata.actionName,
+            });
+          },
+          onError: async ({ error, metadata }) => {
+            callbackContexts.push({
+              phase: "error",
+              actionId: metadata.actionId,
+              actionName: metadata.actionName,
+              errorType: error.type,
+            });
+          },
+          onSettled: async ({ result, metadata }) => {
+            callbackContexts.push({
+              phase: "settled",
+              actionId: metadata.actionId,
+              actionName: metadata.actionName,
+              success: result.success,
+            });
+          },
+        })
+        .build();
 
       const result = await callbackContextAction("callback-fail");
       expect(result.success).toBe(false);
@@ -339,45 +333,44 @@ describe("Error Message Validation and Context Preservation (Simplified)", () =>
           /^System error: .+ at \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
       };
 
-      const patternValidationAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: z.object({
-              errorType: z.enum([
-                "VALIDATION_ERROR",
-                "BUSINESS_ERROR",
-                "SYSTEM_ERROR",
-              ]),
-              details: z.string(),
-            }),
-          })
-          .errors({
-            validationError: (details: string) => ({
-              type: "VALIDATION_ERROR" as const,
-              message: `Validation failed: ${details}`,
-            }),
-            businessError: (details: string, code: string) => ({
-              type: "BUSINESS_ERROR" as const,
-              message: `Business rule violation: ${details} (code: ${code})`,
-            }),
-            systemError: (details: string) => ({
-              type: "SYSTEM_ERROR" as const,
-              message: `System error: ${details} at ${new Date().toISOString()}`,
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            switch (input.errorType) {
-              case "VALIDATION_ERROR":
-                return errors.validationError(input.details);
-              case "BUSINESS_ERROR":
-                return errors.businessError(input.details, "BR001");
-              case "SYSTEM_ERROR":
-                return errors.systemError(input.details);
-              default:
-                return "success";
-            }
+      const patternValidationAction = actioncraft()
+        .schemas({
+          inputSchema: z.object({
+            errorType: z.enum([
+              "VALIDATION_ERROR",
+              "BUSINESS_ERROR",
+              "SYSTEM_ERROR",
+            ]),
+            details: z.string(),
           }),
-      );
+        })
+        .errors({
+          validationError: (details: string) => ({
+            type: "VALIDATION_ERROR" as const,
+            message: `Validation failed: ${details}`,
+          }),
+          businessError: (details: string, code: string) => ({
+            type: "BUSINESS_ERROR" as const,
+            message: `Business rule violation: ${details} (code: ${code})`,
+          }),
+          systemError: (details: string) => ({
+            type: "SYSTEM_ERROR" as const,
+            message: `System error: ${details} at ${new Date().toISOString()}`,
+          }),
+        })
+        .handler(async ({ input, errors }) => {
+          switch (input.errorType) {
+            case "VALIDATION_ERROR":
+              return errors.validationError(input.details);
+            case "BUSINESS_ERROR":
+              return errors.businessError(input.details, "BR001");
+            case "SYSTEM_ERROR":
+              return errors.systemError(input.details);
+            default:
+              return "success";
+          }
+        })
+        .build();
 
       // Test validation error pattern
       const validationResult = await patternValidationAction({
@@ -420,29 +413,28 @@ describe("Error Message Validation and Context Preservation (Simplified)", () =>
     it("should validate error message length and truncation", async () => {
       const maxMessageLength = 50;
 
-      const messageLengthAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            truncatedError: (longMessage: string) => {
-              const truncated =
-                longMessage.length > maxMessageLength
-                  ? `${longMessage.substring(0, maxMessageLength - 3)}...`
-                  : longMessage;
+      const messageLengthAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          truncatedError: (longMessage: string) => {
+            const truncated =
+              longMessage.length > maxMessageLength
+                ? `${longMessage.substring(0, maxMessageLength - 3)}...`
+                : longMessage;
 
-              return {
-                type: "TRUNCATED_ERROR" as const,
-                message: truncated,
-                originalLength: longMessage.length,
-                truncated: longMessage.length > maxMessageLength,
-              };
-            },
-          })
-          .handler(async ({ input, errors }) => {
-            const longMessage = input.repeat(20); // Create long message
-            return errors.truncatedError(longMessage);
-          }),
-      );
+            return {
+              type: "TRUNCATED_ERROR" as const,
+              message: truncated,
+              originalLength: longMessage.length,
+              truncated: longMessage.length > maxMessageLength,
+            };
+          },
+        })
+        .handler(async ({ input, errors }) => {
+          const longMessage = input.repeat(20); // Create long message
+          return errors.truncatedError(longMessage);
+        })
+        .build();
 
       const result = await messageLengthAction("This is a test message. ");
       expect(result.success).toBe(false);
@@ -461,23 +453,22 @@ describe("Error Message Validation and Context Preservation (Simplified)", () =>
     });
 
     it("should validate error message encoding and special characters", async () => {
-      const encodingAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            encodingError: (input: string) => ({
-              type: "ENCODING_ERROR" as const,
-              message: `Invalid characters in input: ${input}`,
-              originalInput: input,
-              encodedInput: encodeURIComponent(input),
-              hasSpecialChars: /[^\w\s]/.test(input),
-              hasUnicode: /[^\x00-\x7F]/.test(input),
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            return errors.encodingError(input);
+      const encodingAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          encodingError: (input: string) => ({
+            type: "ENCODING_ERROR" as const,
+            message: `Invalid characters in input: ${input}`,
+            originalInput: input,
+            encodedInput: encodeURIComponent(input),
+            hasSpecialChars: /[^\w\s]/.test(input),
+            hasUnicode: /[^\x00-\x7F]/.test(input),
           }),
-      );
+        })
+        .handler(async ({ input, errors }) => {
+          return errors.encodingError(input);
+        })
+        .build();
 
       const specialInput = "Test with émojis 🚀 and spëcial chars: <>&\"'";
       const result = await encodingAction(specialInput);
@@ -500,31 +491,30 @@ describe("Error Message Validation and Context Preservation (Simplified)", () =>
 
   describe("Error Context Serialization", () => {
     it("should handle object serialization in error context", async () => {
-      const serializationAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            serializationError: (data: any) => ({
-              type: "SERIALIZATION_ERROR" as const,
-              message: "Object serialization test",
-              data,
-              serialized: JSON.stringify(data),
-            }),
-          })
-          .handler(async ({ errors }) => {
-            const testObject = {
-              date: new Date().toISOString(),
-              number: 42,
-              string: "test",
-              nested: {
-                array: [1, 2, 3],
-                boolean: true,
-              },
-            };
-
-            return errors.serializationError(testObject);
+      const serializationAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          serializationError: (data: any) => ({
+            type: "SERIALIZATION_ERROR" as const,
+            message: "Object serialization test",
+            data,
+            serialized: JSON.stringify(data),
           }),
-      );
+        })
+        .handler(async ({ errors }) => {
+          const testObject = {
+            date: new Date().toISOString(),
+            number: 42,
+            string: "test",
+            nested: {
+              array: [1, 2, 3],
+              boolean: true,
+            },
+          };
+
+          return errors.serializationError(testObject);
+        })
+        .build();
 
       const result = await serializationAction("test");
       expect(result.success).toBe(false);

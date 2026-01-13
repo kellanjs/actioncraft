@@ -1,27 +1,27 @@
-import { action } from "../../../src/index";
-import { describe, expect, it } from "../../setup";
+import { actioncraft } from "../../../src/index";
+import { describe, it, expect } from "vitest";
 
 describe("ActionBuilder Exports", () => {
-  it("should export action function from main index", () => {
-    expect(action).toBeDefined();
-    expect(typeof action).toBe("function");
+  it("should export actioncraft function from main index", () => {
+    expect(actioncraft).toBeDefined();
+    expect(typeof actioncraft).toBe("function");
   });
 
-  it("should create ActionBuilder instance from exported function", () => {
-    const builder = action();
+  it("should create ActioncraftBuilder instance from exported function", () => {
+    const builder = actioncraft();
     expect(builder).toBeDefined();
     expect(typeof builder.config).toBe("function");
     expect(typeof builder.schemas).toBe("function");
     expect(typeof builder.errors).toBe("function");
     expect(typeof builder.handler).toBe("function");
     expect(typeof builder.callbacks).toBe("function");
-    expect(typeof builder.craft).toBe("function");
+    expect(typeof builder.build).toBe("function");
   });
 
   it("should create working action from exported function", async () => {
-    const craftedAction = action()
+    const craftedAction = actioncraft()
       .handler(async () => "Hello from ActionBuilder!")
-      .craft();
+      .build();
 
     const result = await craftedAction();
     expect(result).toEqual({

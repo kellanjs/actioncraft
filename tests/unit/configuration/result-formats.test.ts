@@ -1,24 +1,23 @@
-import { craft, initial } from "../../../src/index.js";
+import { actioncraft, initial } from "../../../src/index.js";
 import {
   stringSchema,
   numberSchema,
   userSchema,
   organizationIdSchema,
 } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 describe("Advanced Result Format Testing", () => {
   describe("Web Format (Default) - Deep Testing", () => {
     it("should return consistent api format for success scenarios", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => ({
-            processedInput: (input as string).toUpperCase(),
-            length: (input as string).length,
-            metadata: { processed: true },
-          })),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => ({
+          processedInput: (input as string).toUpperCase(),
+          length: (input as string).length,
+          metadata: { processed: true },
+        }))
+        .build();
 
       const result = await action("test");
 
@@ -32,20 +31,17 @@ describe("Advanced Result Format Testing", () => {
     });
 
     it("should return consistent api format for error scenarios", async () => {
-      const action = craft((action) =>
-        action
-          .errors({
-            businessError: (code: number, message: string) =>
-              ({
-                type: "BUSINESS_ERROR",
-                code,
-                message,
-              }) as const,
-          })
-          .handler(async ({ errors }) =>
-            errors.businessError(404, "Not found"),
-          ),
-      );
+      const action = actioncraft()
+        .errors({
+          businessError: (code: number, message: string) =>
+            ({
+              type: "BUSINESS_ERROR",
+              code,
+              message,
+            }) as const,
+        })
+        .handler(async ({ errors }) => errors.businessError(404, "Not found"))
+        .build();
 
       const result = await action();
       expect(result.success).toBe(false);
@@ -56,11 +52,10 @@ describe("Advanced Result Format Testing", () => {
     });
 
     it("should handle validation errors in api format", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // @ts-expect-error - Testing invalid input type
       const result = await action(123);
@@ -73,18 +68,17 @@ describe("Advanced Result Format Testing", () => {
 
   describe("Functional Format - Deep Testing", () => {
     it("should return consistent functional format for success scenarios", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => ({
-            doubled: (input as number) * 2,
-            isEven: (input as number) % 2 === 0,
-            formatted: `Number: ${input}`,
-          })),
-      );
+      const action = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => ({
+          doubled: (input as number) * 2,
+          isEven: (input as number) % 2 === 0,
+          formatted: `Number: ${input}`,
+        }))
+        .build();
 
       const result = await action(21);
 
@@ -105,21 +99,20 @@ describe("Advanced Result Format Testing", () => {
     });
 
     it("should return consistent functional format for error scenarios", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .errors({
-            notFound: (resource: string) =>
-              ({
-                type: "NOT_FOUND",
-                resource,
-                timestamp: Date.now(),
-              }) as const,
-          })
-          .handler(async ({ errors }) => errors.notFound("user")),
-      );
+      const action = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .errors({
+          notFound: (resource: string) =>
+            ({
+              type: "NOT_FOUND",
+              resource,
+              timestamp: Date.now(),
+            }) as const,
+        })
+        .handler(async ({ errors }) => errors.notFound("user"))
+        .build();
 
       const result = await action();
       expect("error" in result).toBe(true);
@@ -131,14 +124,13 @@ describe("Advanced Result Format Testing", () => {
     });
 
     it("should handle validation errors in functional format", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // @ts-expect-error - Testing invalid input type
       const result = await action(123);
@@ -151,15 +143,14 @@ describe("Advanced Result Format Testing", () => {
     });
 
     it("should set type discriminator to 'ok' for successful functional results", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .handler(async () => {
-            return "success";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .handler(async () => {
+          return "success";
+        })
+        .build();
 
       const result = await action();
 
@@ -169,16 +160,15 @@ describe("Advanced Result Format Testing", () => {
     });
 
     it("should set type discriminator to 'err' for error functional results", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .errors({
-            failure: () => ({ type: "FAILURE" }) as const,
-          })
-          .handler(async ({ errors }) => errors.failure()),
-      );
+      const action = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .errors({
+          failure: () => ({ type: "FAILURE" }) as const,
+        })
+        .handler(async ({ errors }) => errors.failure())
+        .build();
 
       const result = await action();
 
@@ -199,21 +189,19 @@ describe("Advanced Result Format Testing", () => {
       };
 
       // Web format action
-      const apiAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => ({ ...testData, input })),
-      );
+      const apiAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => ({ ...testData, input }))
+        .build();
 
       // Functional format action (same logic)
-      const functionalAction = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => ({ ...testData, input })),
-      );
+      const functionalAction = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => ({ ...testData, input }))
+        .build();
 
       const apiResult = await apiAction("test input");
       const functionalResult = await functionalAction("test input");
@@ -240,33 +228,31 @@ describe("Advanced Result Format Testing", () => {
       };
 
       // Web format action
-      const apiAction = craft((action) =>
-        action
-          .errors(customErrors)
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input, errors }) => {
-            if ((input as string).length < 3) {
-              return errors.validationFailed("input", input);
-            }
-            return input;
-          }),
-      );
+      const apiAction = actioncraft()
+        .errors(customErrors)
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input, errors }) => {
+          if ((input as string).length < 3) {
+            return errors.validationFailed("input", input);
+          }
+          return input;
+        })
+        .build();
 
       // Functional format action (same logic)
-      const functionalAction = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .errors(customErrors)
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input, errors }) => {
-            if ((input as string).length < 3) {
-              return errors.validationFailed("input", input);
-            }
-            return input;
-          }),
-      );
+      const functionalAction = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .errors(customErrors)
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input, errors }) => {
+          if ((input as string).length < 3) {
+            return errors.validationFailed("input", input);
+          }
+          return input;
+        })
+        .build();
 
       const apiResult = await apiAction("ab"); // Too short
       const functionalResult = await functionalAction("ab"); // Too short
@@ -283,20 +269,18 @@ describe("Advanced Result Format Testing", () => {
     });
 
     it("should handle built-in validation errors consistently across formats", async () => {
-      const apiAction = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const apiAction = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
-      const functionalAction = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const functionalAction = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with invalid input
       const invalidInput = { name: "", email: "invalid", age: 15 }; // Multiple validation errors
@@ -316,15 +300,14 @@ describe("Advanced Result Format Testing", () => {
 
   describe("Type Inference Verification", () => {
     it("should properly infer success data types in api format", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => ({
-            processedInput: (input as string).toUpperCase(),
-            length: (input as string).length,
-            metadata: { processed: true },
-          })),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => ({
+          processedInput: (input as string).toUpperCase(),
+          length: (input as string).length,
+          metadata: { processed: true },
+        }))
+        .build();
 
       const result = await action("test");
 
@@ -352,25 +335,23 @@ describe("Advanced Result Format Testing", () => {
       };
 
       // Web format
-      const apiAction = craft((action) =>
-        action
-          .errors(customErrors)
-          .handler(async ({ errors }) =>
-            errors.businessLogicError(400, ["Invalid request", "Missing data"]),
-          ),
-      );
+      const apiAction = actioncraft()
+        .errors(customErrors)
+        .handler(async ({ errors }) =>
+          errors.businessLogicError(400, ["Invalid request", "Missing data"]),
+        )
+        .build();
 
       // Functional format
-      const functionalAction = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .errors(customErrors)
-          .handler(async ({ errors }) =>
-            errors.businessLogicError(500, ["Server error", "Database down"]),
-          ),
-      );
+      const functionalAction = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .errors(customErrors)
+        .handler(async ({ errors }) =>
+          errors.businessLogicError(500, ["Server error", "Database down"]),
+        )
+        .build();
 
       const apiResult = await apiAction();
       const functionalResult = await functionalAction();
@@ -406,40 +387,38 @@ describe("Advanced Result Format Testing", () => {
 
     it("should handle complex bind args scenarios in both formats", async () => {
       // Web format with bind args
-      const apiAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [organizationIdSchema] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [orgId] = bindArgs;
-            return {
-              input: input as string,
-              organizationId: orgId as string,
-              processed: true,
-            };
-          }),
-      );
+      const apiAction = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [organizationIdSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [orgId] = bindArgs;
+          return {
+            input: input as string,
+            organizationId: orgId as string,
+            processed: true,
+          };
+        })
+        .build();
 
       // Functional format with bind args
-      const functionalAction = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .schemas({
-            inputSchema: numberSchema,
-            bindSchemas: [stringSchema] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [prefix] = bindArgs;
-            return {
-              result: `${prefix as string}: ${input as number}`,
-              doubled: (input as number) * 2,
-            };
-          }),
-      );
+      const functionalAction = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .schemas({
+          inputSchema: numberSchema,
+          bindSchemas: [stringSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [prefix] = bindArgs;
+          return {
+            result: `${prefix as string}: ${input as number}`,
+            doubled: (input as number) * 2,
+          };
+        })
+        .build();
 
       const apiResult = await apiAction(
         "550e8400-e29b-41d4-a716-446655440000",
@@ -473,23 +452,21 @@ describe("Advanced Result Format Testing", () => {
   describe("Action ID Consistency Across Formats", () => {
     it("should include action ID in all result formats", async () => {
       // API format
-      const apiAction = craft((action) =>
-        action.handler(async () => ({ data: "api" })),
-      );
+      const apiAction = actioncraft()
+        .handler(async () => ({ data: "api" }))
+        .build();
 
       // Functional format
-      const functionalAction = craft((action) =>
-        action
-          .config({ resultFormat: "functional" })
-          .handler(async () => ({ data: "functional" })),
-      );
+      const functionalAction = actioncraft()
+        .config({ resultFormat: "functional" })
+        .handler(async () => ({ data: "functional" }))
+        .build();
 
       // useActionState format
-      const stateAction = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .handler(async () => ({ data: "state" })),
-      );
+      const stateAction = actioncraft()
+        .config({ useActionState: true })
+        .handler(async () => ({ data: "state" }))
+        .build();
 
       const apiResult = await apiAction();
       const functionalResult = await functionalAction();
@@ -516,27 +493,24 @@ describe("Advanced Result Format Testing", () => {
       };
 
       // API format error
-      const apiAction = craft((action) =>
-        action
-          .errors(errorDef)
-          .handler(async ({ errors }) => errors.testError()),
-      );
+      const apiAction = actioncraft()
+        .errors(errorDef)
+        .handler(async ({ errors }) => errors.testError())
+        .build();
 
       // Functional format error
-      const functionalAction = craft((action) =>
-        action
-          .config({ resultFormat: "functional" })
-          .errors(errorDef)
-          .handler(async ({ errors }) => errors.testError()),
-      );
+      const functionalAction = actioncraft()
+        .config({ resultFormat: "functional" })
+        .errors(errorDef)
+        .handler(async ({ errors }) => errors.testError())
+        .build();
 
       // useActionState format error
-      const stateAction = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .errors(errorDef)
-          .handler(async ({ errors }) => errors.testError()),
-      );
+      const stateAction = actioncraft()
+        .config({ useActionState: true })
+        .errors(errorDef)
+        .handler(async ({ errors }) => errors.testError())
+        .build();
 
       const apiResult = await apiAction();
       const functionalResult = await functionalAction();
@@ -558,11 +532,10 @@ describe("Advanced Result Format Testing", () => {
     });
 
     it("should maintain action ID consistency within same action across multiple calls", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => ({ processed: input })),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => ({ processed: input }))
+        .build();
 
       const result1 = await action("test1");
       const result2 = await action("test2");
@@ -576,15 +549,16 @@ describe("Advanced Result Format Testing", () => {
 
   describe("Advanced Format Edge Cases", () => {
     it("should handle null/undefined data consistently", async () => {
-      const apiAction = craft((action) => action.handler(async () => null));
+      const apiAction = actioncraft()
+        .handler(async () => null)
+        .build();
 
-      const functionalAction = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .handler(async () => null),
-      );
+      const functionalAction = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .handler(async () => null)
+        .build();
 
       const apiResult = await apiAction();
       const functionalResult = await functionalAction();
@@ -609,20 +583,18 @@ describe("Advanced Result Format Testing", () => {
         };
       };
 
-      const apiAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => sharedLogic(input as string)),
-      );
+      const apiAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => sharedLogic(input as string))
+        .build();
 
-      const functionalAction = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => sharedLogic(input as string)),
-      );
+      const functionalAction = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => sharedLogic(input as string))
+        .build();
 
       // Test success in both formats
       const apiSuccess = await apiAction("hello world");
@@ -679,8 +651,9 @@ describe("Advanced Result Format Testing", () => {
           }) as const,
       };
 
-      const apiAction = craft((action) =>
-        action.errors(complexErrors).handler(async ({ errors }) =>
+      const apiAction = actioncraft()
+        .errors(complexErrors)
+        .handler(async ({ errors }) =>
           errors.nestedError("validation", {
             message: "Complex validation failed",
             code: 1001,
@@ -690,26 +663,25 @@ describe("Advanced Result Format Testing", () => {
               suggestions: ["Add domain", "Check format"],
             },
           }),
-        ),
-      );
+        )
+        .build();
 
-      const functionalAction = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .errors(complexErrors)
-          .handler(async ({ errors }) =>
-            errors.nestedError("authorization", {
-              message: "Insufficient permissions",
-              code: 2001,
-              metadata: {
-                requiredRole: "admin",
-                currentRole: "user",
-              },
-            }),
-          ),
-      );
+      const functionalAction = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .errors(complexErrors)
+        .handler(async ({ errors }) =>
+          errors.nestedError("authorization", {
+            message: "Insufficient permissions",
+            code: 2001,
+            metadata: {
+              requiredRole: "admin",
+              currentRole: "user",
+            },
+          }),
+        )
+        .build();
 
       const apiResult = await apiAction();
       const functionalResult = await functionalAction();

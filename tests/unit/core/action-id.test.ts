@@ -2,7 +2,7 @@ import {
   ActioncraftError,
   isActioncraftError,
 } from "../../../src/classes/error";
-import { craft, initial } from "../../../src/index";
+import { actioncraft, initial } from "../../../src/index";
 import { ok, err } from "../../../src/types/result";
 import { getActionId } from "../../../src/utils";
 import { unwrap, throwable } from "../../../src/utils";
@@ -11,36 +11,39 @@ import {
   expectValidActionId,
 } from "../../__fixtures__/helpers";
 import { stringSchema, numberSchema } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 // Test-specific utilities
 function createSimpleAction(returnValue: any = "test") {
-  return craft((action) => action.handler(async () => returnValue));
+  return actioncraft()
+    .handler(async () => returnValue)
+    .build();
 }
 
 function createActionWithSchema(schema: any, handler?: (input: any) => any) {
-  return craft((action) =>
-    action
-      .schemas({ inputSchema: schema })
-      .handler(async ({ input }) => (handler ? handler(input) : input)),
-  );
+  return actioncraft()
+    .schemas({ inputSchema: schema })
+    .handler(async ({ input }) => (handler ? handler(input) : input))
+    .build();
 }
 
 function createActionWithErrors(
   errorFactories: Record<string, (...args: any[]) => any>,
 ) {
-  return craft((action) =>
-    action.errors(errorFactories).handler(async ({ errors }) => {
+  return actioncraft()
+    .errors(errorFactories)
+    .handler(async ({ errors }) => {
       const errorName = Object.keys(errorFactories)[0];
       return errors[errorName]("Test error");
-    }),
-  );
+    })
+    .build();
 }
 
 function createActionWithConfig(config: any, handler?: () => any) {
-  return craft((action) =>
-    action.config(config).handler(async () => (handler ? handler() : "test")),
-  );
+  return actioncraft()
+    .config(config)
+    .handler(async () => (handler ? handler() : "test"))
+    .build();
 }
 
 function expectActioncraftErrorWithActionId(
@@ -152,11 +155,11 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should include action ID in unhandled error results", async () => {
-      const action = craft((action) =>
-        action.handler(async () => {
+      const action = actioncraft()
+        .handler(async () => {
           throw new Error("Unhandled error");
-        }),
-      );
+        })
+        .build();
 
       const result = await action();
       const actionId = getActionId(action);
@@ -171,12 +174,11 @@ describe("Action ID (__ac_id) Field", () => {
 
   describe("Action ID in Results - Functional Format", () => {
     it("should include action ID in successful functional results", async () => {
-      const action = craft((action) =>
-        action
-          .config({ resultFormat: "functional" })
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => (input as number) * 2),
-      );
+      const action = actioncraft()
+        .config({ resultFormat: "functional" })
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => (input as number) * 2)
+        .build();
 
       const result = await action(5);
       const actionId = getActionId(action);
@@ -189,17 +191,16 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should include action ID in error functional results", async () => {
-      const action = craft((action) =>
-        action
-          .config({ resultFormat: "functional" })
-          .errors({
-            functionalError: (code: number) => ({
-              type: "FUNCTIONAL_ERROR" as const,
-              code,
-            }),
-          })
-          .handler(async ({ errors }) => errors.functionalError(404)),
-      );
+      const action = actioncraft()
+        .config({ resultFormat: "functional" })
+        .errors({
+          functionalError: (code: number) => ({
+            type: "FUNCTIONAL_ERROR" as const,
+            code,
+          }),
+        })
+        .handler(async ({ errors }) => errors.functionalError(404))
+        .build();
 
       const result = await action();
       const actionId = getActionId(action);
@@ -212,12 +213,11 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should include action ID in functional validation errors", async () => {
-      const actionWithSchema = craft((action) =>
-        action
-          .config({ resultFormat: "functional" })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const actionWithSchema = actioncraft()
+        .config({ resultFormat: "functional" })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const result = await actionWithSchema(123 as any);
       const actionId = getActionId(actionWithSchema);
@@ -232,12 +232,11 @@ describe("Action ID (__ac_id) Field", () => {
 
   describe("Action ID in Results - useActionState Format", () => {
     it("should include action ID in successful useActionState results", async () => {
-      const action = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => (input as string).toUpperCase()),
-      );
+      const action = actioncraft()
+        .config({ useActionState: true })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => (input as string).toUpperCase())
+        .build();
 
       const result = await action(initial(action), "hello");
       const actionId = getActionId(action);
@@ -251,19 +250,18 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should include action ID in error useActionState results", async () => {
-      const action = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .errors({
-            stateError: (message: string) => ({
-              type: "STATE_ERROR" as const,
-              message,
-            }),
-          })
-          .handler(async ({ errors }) => {
-            return errors.stateError("State error");
+      const action = actioncraft()
+        .config({ useActionState: true })
+        .errors({
+          stateError: (message: string) => ({
+            type: "STATE_ERROR" as const,
+            message,
           }),
-      );
+        })
+        .handler(async ({ errors }) => {
+          return errors.stateError("State error");
+        })
+        .build();
 
       const result = await action(initial(action));
       const actionId = getActionId(action as any);
@@ -276,12 +274,11 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should include action ID in useActionState validation errors", async () => {
-      const action = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({ useActionState: true })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const result = await action(initial(action), 123 as any);
       const actionId = getActionId(action);
@@ -296,9 +293,9 @@ describe("Action ID (__ac_id) Field", () => {
 
   describe("Action ID in Manual Result Objects", () => {
     it("should preserve action ID when returning manual ok() results", async () => {
-      const action = craft((action) =>
-        action.handler(async () => ok("manual success")),
-      );
+      const action = actioncraft()
+        .handler(async () => ok("manual success"))
+        .build();
 
       const result = await action();
       const actionId = getActionId(action);
@@ -308,9 +305,9 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should set action ID when returning manual err() results", async () => {
-      const action = craft((action) =>
-        action.handler(async () => err({ type: "MANUAL_ERROR" as const })),
-      );
+      const action = actioncraft()
+        .handler(async () => err({ type: "MANUAL_ERROR" as const }))
+        .build();
 
       const result = await action();
       const actionId = getActionId(action);
@@ -320,11 +317,9 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should override unknown action ID in manual results", async () => {
-      const action = craft((action) =>
-        action.handler(async () =>
-          err({ type: "MANUAL_ERROR" as const }, "unknown"),
-        ),
-      );
+      const action = actioncraft()
+        .handler(async () => err({ type: "MANUAL_ERROR" as const }, "unknown"))
+        .build();
 
       const result = await action();
       const actionId = getActionId(action);
@@ -335,11 +330,11 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should override custom action ID with action's own ID for security", async () => {
-      const action = craft((action) =>
-        action.handler(async () =>
+      const action = actioncraft()
+        .handler(async () =>
           err({ type: "MANUAL_ERROR" as const }, "custom-id"),
-        ),
-      );
+        )
+        .build();
 
       const result = await action();
       const actionId = getActionId(action);
@@ -561,24 +556,23 @@ describe("Action ID (__ac_id) Field", () => {
     it("should maintain action ID consistency in callbacks", async () => {
       const capturedActionIds: string[] = [];
 
-      const action = craft((action) =>
-        action
-          .handler(async ({ metadata }) => {
+      const action = actioncraft()
+        .handler(async ({ metadata }) => {
+          capturedActionIds.push(metadata.actionId);
+          return "success";
+        })
+        .callbacks({
+          onStart: async ({ metadata }) => {
             capturedActionIds.push(metadata.actionId);
-            return "success";
-          })
-          .callbacks({
-            onStart: async ({ metadata }) => {
-              capturedActionIds.push(metadata.actionId);
-            },
-            onSuccess: async ({ metadata }) => {
-              capturedActionIds.push(metadata.actionId);
-            },
-            onSettled: async ({ metadata }) => {
-              capturedActionIds.push(metadata.actionId);
-            },
-          }),
-      );
+          },
+          onSuccess: async ({ metadata }) => {
+            capturedActionIds.push(metadata.actionId);
+          },
+          onSettled: async ({ metadata }) => {
+            capturedActionIds.push(metadata.actionId);
+          },
+        })
+        .build();
 
       const result = await action();
       const actionId = getActionId(action);
@@ -589,18 +583,17 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should maintain action ID consistency with bind arguments", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema] as const,
-          })
-          .handler(async ({ input, bindArgs, metadata }) => ({
-            input,
-            multiplier: bindArgs[0],
-            actionId: metadata.actionId,
-          })),
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema] as const,
+        })
+        .handler(async ({ input, bindArgs, metadata }) => ({
+          input,
+          multiplier: bindArgs[0],
+          actionId: metadata.actionId,
+        }))
+        .build();
 
       const result = await action(5, "test");
       const actionId = getActionId(action);
@@ -615,23 +608,22 @@ describe("Action ID (__ac_id) Field", () => {
 
   describe("Action ID Edge Cases", () => {
     it("should handle actions with complex error scenarios", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            handleThrownError: (error: unknown) => ({
-              type: "CUSTOM_THROWN_ERROR" as const,
-              originalError:
-                error instanceof Error ? error.message : String(error),
-            }),
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            if (input === "throw") {
-              throw new Error("Intentional error");
-            }
-            return input;
+      const action = actioncraft()
+        .config({
+          handleThrownError: (error: unknown) => ({
+            type: "CUSTOM_THROWN_ERROR" as const,
+            originalError:
+              error instanceof Error ? error.message : String(error),
           }),
-      );
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          if (input === "throw") {
+            throw new Error("Intentional error");
+          }
+          return input;
+        })
+        .build();
 
       const thrownResult = await action("throw");
       const successResult = await action("success");
@@ -646,15 +638,13 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should handle output validation failures with correct action ID", async () => {
-      const action = craft(
-        (action) =>
-          action
-            .schemas({
-              inputSchema: stringSchema,
-              outputSchema: numberSchema,
-            })
-            .handler(async ({ input }) => input), // Returns string when number expected
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          outputSchema: numberSchema,
+        })
+        .handler(async ({ input }) => input) // Returns string when number expected
+        .build();
 
       const result = await action("not-a-number");
       const actionId = getActionId(action);
@@ -667,11 +657,11 @@ describe("Action ID (__ac_id) Field", () => {
     });
 
     it("should handle implicit return errors with correct action ID", async () => {
-      const action = craft((action) =>
-        action.handler(async () => {
+      const action = actioncraft()
+        .handler(async () => {
           // Implicit return undefined
-        }),
-      );
+        })
+        .build();
 
       const result = await action();
       const actionId = getActionId(action);

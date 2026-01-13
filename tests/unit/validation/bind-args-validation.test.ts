@@ -1,4 +1,4 @@
-import { craft, action } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import {
   expectSuccessResult,
   expectValidAction,
@@ -16,24 +16,23 @@ import {
   alwaysFailSchema,
   validNestedData,
 } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 
 describe("Bind Argument Validation", () => {
   it("should validate bind arguments successfully", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema, stringSchema] as const,
-        })
-        .handler(async ({ input, bindArgs }) => {
-          const [multiplier, prefix] = bindArgs;
-          return `${prefix as string}: ${(input as string).repeat(
-            multiplier as number,
-          )}`;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        bindSchemas: [numberSchema, stringSchema] as const,
+      })
+      .handler(async ({ input, bindArgs }) => {
+        const [multiplier, prefix] = bindArgs;
+        return `${prefix as string}: ${(input as string).repeat(
+          multiplier as number,
+        )}`;
+      })
+      .build();
 
     const result = await action(3, "Test", "Hi");
     expect(result.success).toBe(true);
@@ -43,19 +42,18 @@ describe("Bind Argument Validation", () => {
   });
 
   it("should return a BIND_ARGS_VALIDATION_ERROR for invalid bind args", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema, stringSchema] as const,
-        })
-        .handler(async ({ input, bindArgs }) => {
-          const [multiplier, prefix] = bindArgs;
-          return `${prefix as string}: ${(input as string).repeat(
-            multiplier as number,
-          )}`;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        bindSchemas: [numberSchema, stringSchema] as const,
+      })
+      .handler(async ({ input, bindArgs }) => {
+        const [multiplier, prefix] = bindArgs;
+        return `${prefix as string}: ${(input as string).repeat(
+          multiplier as number,
+        )}`;
+      })
+      .build();
 
     // @ts-expect-error - Testing invalid bind args
     const result = await action("invalid", "Test", "Hi"); // First bind arg should be number
@@ -66,17 +64,16 @@ describe("Bind Argument Validation", () => {
   });
 
   it("should handle mixed valid and invalid bind args with BIND_ARGS_VALIDATION", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema, stringSchema, numberSchema] as const,
-        })
-        .handler(async ({ input, bindArgs }) => {
-          const _unused = { input, bindArgs };
-          return "success";
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        bindSchemas: [numberSchema, stringSchema, numberSchema] as const,
+      })
+      .handler(async ({ input, bindArgs }) => {
+        const _unused = { input, bindArgs };
+        return "success";
+      })
+      .build();
 
     // Second bind arg is invalid (should be string, not number)
     // @ts-expect-error - Testing invalid bind args
@@ -88,16 +85,15 @@ describe("Bind Argument Validation", () => {
   });
 
   it("should work without input schema but with bind args", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          bindSchemas: [stringSchema, numberSchema] as const,
-        })
-        .handler(async ({ bindArgs }) => {
-          const [name, age] = bindArgs;
-          return `${name as string} is ${age as number} years old`;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        bindSchemas: [stringSchema, numberSchema] as const,
+      })
+      .handler(async ({ bindArgs }) => {
+        const [name, age] = bindArgs;
+        return `${name as string} is ${age as number} years old`;
+      })
+      .build();
 
     const result = await action("Alice", 25);
     expect(result.success).toBe(true);
@@ -107,17 +103,16 @@ describe("Bind Argument Validation", () => {
   });
 
   it("should distinguish between input validation and bind args validation errors", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema] as const,
-        })
-        .handler(async ({ input, bindArgs }) => {
-          const [multiplier] = bindArgs;
-          return (input as string).repeat(multiplier as number);
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        bindSchemas: [numberSchema] as const,
+      })
+      .handler(async ({ input, bindArgs }) => {
+        const [multiplier] = bindArgs;
+        return (input as string).repeat(multiplier as number);
+      })
+      .build();
 
     // Test bind args validation error
     // @ts-expect-error - Testing invalid bind args
@@ -166,16 +161,15 @@ describe("Bind Argument Validation", () => {
     } as const;
 
     // Test flattened format (default)
-    const defaultAction = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [complexBindSchema] as const,
-        })
-        .handler(async ({ input, bindArgs }) => {
-          return `${input}: ${JSON.stringify(bindArgs[0])}`;
-        }),
-    );
+    const defaultAction = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        bindSchemas: [complexBindSchema] as const,
+      })
+      .handler(async ({ input, bindArgs }) => {
+        return `${input}: ${JSON.stringify(bindArgs[0])}`;
+      })
+      .build();
 
     const defaultResult = await defaultAction({ invalid: "data" }, "test");
     expect(defaultResult.success).toBe(false);
@@ -185,19 +179,18 @@ describe("Bind Argument Validation", () => {
     }
 
     // Test nested format when explicitly configured
-    const nestedAction = craft((action) =>
-      action
-        .config({
-          validationErrorFormat: "nested",
-        })
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [complexBindSchema] as const,
-        })
-        .handler(async ({ input, bindArgs }) => {
-          return `${input}: ${JSON.stringify(bindArgs[0])}`;
-        }),
-    );
+    const nestedAction = actioncraft()
+      .config({
+        validationErrorFormat: "nested",
+      })
+      .schemas({
+        inputSchema: stringSchema,
+        bindSchemas: [complexBindSchema] as const,
+      })
+      .handler(async ({ input, bindArgs }) => {
+        return `${input}: ${JSON.stringify(bindArgs[0])}`;
+      })
+      .build();
 
     const nestedResult = await nestedAction({ invalid: "data" }, "test");
     expect(nestedResult.success).toBe(false);
@@ -208,19 +201,18 @@ describe("Bind Argument Validation", () => {
     }
 
     // Test flattened format
-    const flattenedAction = craft((action) =>
-      action
-        .config({
-          validationErrorFormat: "flattened",
-        })
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [complexBindSchema] as const,
-        })
-        .handler(async ({ input, bindArgs }) => {
-          return `${input}: ${JSON.stringify(bindArgs[0])}`;
-        }),
-    );
+    const flattenedAction = actioncraft()
+      .config({
+        validationErrorFormat: "flattened",
+      })
+      .schemas({
+        inputSchema: stringSchema,
+        bindSchemas: [complexBindSchema] as const,
+      })
+      .handler(async ({ input, bindArgs }) => {
+        return `${input}: ${JSON.stringify(bindArgs[0])}`;
+      })
+      .build();
 
     const flattenedResult = await flattenedAction({ invalid: "data" }, "test");
     expect(flattenedResult.success).toBe(false);
@@ -231,16 +223,15 @@ describe("Bind Argument Validation", () => {
   });
 
   it("should handle single bind arg validation", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          bindSchemas: [stringSchema] as const,
-        })
-        .handler(async ({ bindArgs }) => {
-          const [message] = bindArgs;
-          return `Message: ${message as string}`;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        bindSchemas: [stringSchema] as const,
+      })
+      .handler(async ({ bindArgs }) => {
+        const [message] = bindArgs;
+        return `Message: ${message as string}`;
+      })
+      .build();
 
     // Valid single bind arg
     const validResult = await action("Hello World");
@@ -259,16 +250,15 @@ describe("Bind Argument Validation", () => {
   });
 
   it("should handle multiple bind args with partial failures", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          bindSchemas: [stringSchema, numberSchema, stringSchema] as const,
-        })
-        .handler(async ({ bindArgs }) => {
-          const [first, second, third] = bindArgs;
-          return `${first}: ${second} -> ${third}`;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        bindSchemas: [stringSchema, numberSchema, stringSchema] as const,
+      })
+      .handler(async ({ bindArgs }) => {
+        const [first, second, third] = bindArgs;
+        return `${first}: ${second} -> ${third}`;
+      })
+      .build();
 
     // All valid
     const validResult = await action("Start", 42, "End");
@@ -303,16 +293,15 @@ describe("Bind Argument Validation", () => {
 describe("Comprehensive Bind Args Validation", () => {
   describe("Single Bind Argument Validation", () => {
     it("should validate string bind args", async () => {
-      const stringAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [stringSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [message] = bindArgs;
-            return `Message: ${message}`;
-          }),
-      );
+      const stringAction = actioncraft()
+        .schemas({
+          bindSchemas: [stringSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [message] = bindArgs;
+          return `Message: ${message}`;
+        })
+        .build();
 
       expectValidAction(stringAction);
       const result = await stringAction("Hello World");
@@ -320,64 +309,60 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should validate number bind args", async () => {
-      const numberAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [numberSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [value] = bindArgs;
-            return value * 2;
-          }),
-      );
+      const numberAction = actioncraft()
+        .schemas({
+          bindSchemas: [numberSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [value] = bindArgs;
+          return value * 2;
+        })
+        .build();
 
       const result = await numberAction(21);
       expectSuccessResult(result, 42);
     });
 
     it("should validate complex object bind args", async () => {
-      const objectAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [userSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [user] = bindArgs;
-            return `User: ${user.name} (${user.email})`;
-          }),
-      );
+      const objectAction = actioncraft()
+        .schemas({
+          bindSchemas: [userSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [user] = bindArgs;
+          return `User: ${user.name} (${user.email})`;
+        })
+        .build();
 
       const result = await objectAction(commonTestData.validUser);
       expectSuccessResult(result, "User: John Doe (john@example.com)");
     });
 
     it("should validate nested object bind args", async () => {
-      const nestedAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [nestedSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [data] = bindArgs;
-            return `Profile: ${data.user.profile.name}`;
-          }),
-      );
+      const nestedAction = actioncraft()
+        .schemas({
+          bindSchemas: [nestedSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [data] = bindArgs;
+          return `Profile: ${data.user.profile.name}`;
+        })
+        .build();
 
       const result = await nestedAction(validNestedData);
       expectSuccessResult(result, "Profile: John");
     });
 
     it("should validate array bind args", async () => {
-      const arrayAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [arraySchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [data] = bindArgs;
-            return data.items.length;
-          }),
-      );
+      const arrayAction = actioncraft()
+        .schemas({
+          bindSchemas: [arraySchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [data] = bindArgs;
+          return data.items.length;
+        })
+        .build();
 
       const testData = {
         items: [
@@ -391,32 +376,30 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should validate enum bind args", async () => {
-      const enumAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [permissionLevelSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [permission] = bindArgs;
-            return `Permission: ${permission}`;
-          }),
-      );
+      const enumAction = actioncraft()
+        .schemas({
+          bindSchemas: [permissionLevelSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [permission] = bindArgs;
+          return `Permission: ${permission}`;
+        })
+        .build();
 
       const result = await enumAction("admin");
       expectSuccessResult(result, "Permission: admin");
     });
 
     it("should validate UUID bind args", async () => {
-      const uuidAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [organizationIdSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [orgId] = bindArgs;
-            return `Organization: ${orgId}`;
-          }),
-      );
+      const uuidAction = actioncraft()
+        .schemas({
+          bindSchemas: [organizationIdSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [orgId] = bindArgs;
+          return `Organization: ${orgId}`;
+        })
+        .build();
 
       const testUuid = "550e8400-e29b-41d4-a716-446655440000";
       const result = await uuidAction(testUuid);
@@ -426,36 +409,34 @@ describe("Comprehensive Bind Args Validation", () => {
 
   describe("Multiple Bind Arguments Validation", () => {
     it("should validate multiple primitive bind args", async () => {
-      const multiAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [stringSchema, numberSchema, stringSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [prefix, multiplier, suffix] = bindArgs;
-            return `${prefix}${"*".repeat(multiplier)}${suffix}`;
-          }),
-      );
+      const multiAction = actioncraft()
+        .schemas({
+          bindSchemas: [stringSchema, numberSchema, stringSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [prefix, multiplier, suffix] = bindArgs;
+          return `${prefix}${"*".repeat(multiplier)}${suffix}`;
+        })
+        .build();
 
       const result = await multiAction("Start", 3, "End");
       expectSuccessResult(result, "Start***End");
     });
 
     it("should validate mixed primitive and object bind args", async () => {
-      const mixedAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [
-              organizationIdSchema,
-              userSchema,
-              permissionLevelSchema,
-            ] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [orgId, user, permission] = bindArgs;
-            return `${user.name} has ${permission} access to ${orgId}`;
-          }),
-      );
+      const mixedAction = actioncraft()
+        .schemas({
+          bindSchemas: [
+            organizationIdSchema,
+            userSchema,
+            permissionLevelSchema,
+          ] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [orgId, user, permission] = bindArgs;
+          return `${user.name} has ${permission} access to ${orgId}`;
+        })
+        .build();
 
       const testUuid = "550e8400-e29b-41d4-a716-446655440000";
       const result = await mixedAction(
@@ -467,20 +448,19 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should validate complex nested bind args", async () => {
-      const complexAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [nestedSchema, arraySchema, numberSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [nested, array, multiplier] = bindArgs;
-            return {
-              user: nested.user.profile.name,
-              itemCount: array.items.length * multiplier,
-              theme: nested.user.settings.theme,
-            };
-          }),
-      );
+      const complexAction = actioncraft()
+        .schemas({
+          bindSchemas: [nestedSchema, arraySchema, numberSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [nested, array, multiplier] = bindArgs;
+          return {
+            user: nested.user.profile.name,
+            itemCount: array.items.length * multiplier,
+            theme: nested.user.settings.theme,
+          };
+        })
+        .build();
 
       const arrayData = {
         items: [
@@ -498,25 +478,24 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle large number of bind args", async () => {
-      const manyArgsAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [
-              stringSchema,
-              numberSchema,
-              stringSchema,
-              numberSchema,
-              stringSchema,
-              numberSchema,
-              stringSchema,
-              numberSchema,
-            ] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [s1, n1, s2, n2, s3, n3, s4, n4] = bindArgs;
-            return `${s1}${n1}${s2}${n2}${s3}${n3}${s4}${n4}`;
-          }),
-      );
+      const manyArgsAction = actioncraft()
+        .schemas({
+          bindSchemas: [
+            stringSchema,
+            numberSchema,
+            stringSchema,
+            numberSchema,
+            stringSchema,
+            numberSchema,
+            stringSchema,
+            numberSchema,
+          ] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [s1, n1, s2, n2, s3, n3, s4, n4] = bindArgs;
+          return `${s1}${n1}${s2}${n2}${s3}${n3}${s4}${n4}`;
+        })
+        .build();
 
       const result = await manyArgsAction("a", 1, "b", 2, "c", 3, "d", 4);
       expectSuccessResult(result, "a1b2c3d4");
@@ -525,17 +504,16 @@ describe("Comprehensive Bind Args Validation", () => {
 
   describe("Bind Args with Input Schema Combinations", () => {
     it("should validate bind args with input schema", async () => {
-      const combinedAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: userSchema,
-            bindSchemas: [organizationIdSchema, permissionLevelSchema] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [orgId, permission] = bindArgs;
-            return `${input.name} (${permission}) in org ${orgId}`;
-          }),
-      );
+      const combinedAction = actioncraft()
+        .schemas({
+          inputSchema: userSchema,
+          bindSchemas: [organizationIdSchema, permissionLevelSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [orgId, permission] = bindArgs;
+          return `${input.name} (${permission}) in org ${orgId}`;
+        })
+        .build();
 
       const testUuid = "550e8400-e29b-41d4-a716-446655440000";
       const result = await combinedAction(
@@ -547,32 +525,30 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should validate bind args without input schema", async () => {
-      const bindOnlyAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [stringSchema, numberSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [name, age] = bindArgs;
-            return `${name} is ${age} years old`;
-          }),
-      );
+      const bindOnlyAction = actioncraft()
+        .schemas({
+          bindSchemas: [stringSchema, numberSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [name, age] = bindArgs;
+          return `${name} is ${age} years old`;
+        })
+        .build();
 
       const result = await bindOnlyAction("Alice", 30);
       expectSuccessResult(result, "Alice is 30 years old");
     });
 
     it("should handle empty bind schemas with input", async () => {
-      const inputOnlyAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            expect(bindArgs).toEqual([]);
-            return `Input: ${input}`;
-          }),
-      );
+      const inputOnlyAction = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          expect(bindArgs).toEqual([]);
+          return `Input: ${input}`;
+        })
+        .build();
 
       const result = await inputOnlyAction("test input");
       expectSuccessResult(result, "Input: test input");
@@ -581,16 +557,15 @@ describe("Comprehensive Bind Args Validation", () => {
 
   describe("Error Conditions and Edge Cases", () => {
     it("should handle invalid single bind arg", async () => {
-      const stringAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [stringSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [message] = bindArgs;
-            return `Message: ${message}`;
-          }),
-      );
+      const stringAction = actioncraft()
+        .schemas({
+          bindSchemas: [stringSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [message] = bindArgs;
+          return `Message: ${message}`;
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid bind args
       const result = await stringAction(123);
@@ -601,16 +576,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle invalid number bind arg", async () => {
-      const numberAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [numberSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [value] = bindArgs;
-            return value * 2;
-          }),
-      );
+      const numberAction = actioncraft()
+        .schemas({
+          bindSchemas: [numberSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [value] = bindArgs;
+          return value * 2;
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid bind args
       const result = await numberAction("not-a-number");
@@ -621,16 +595,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle invalid object bind arg", async () => {
-      const objectAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [userSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [user] = bindArgs;
-            return `User: ${user.name}`;
-          }),
-      );
+      const objectAction = actioncraft()
+        .schemas({
+          bindSchemas: [userSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [user] = bindArgs;
+          return `User: ${user.name}`;
+        })
+        .build();
 
       const invalidUser = { name: "", email: "invalid", age: 15 };
       const result = await objectAction(invalidUser);
@@ -641,16 +614,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle invalid enum bind arg", async () => {
-      const enumAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [permissionLevelSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [permission] = bindArgs;
-            return `Permission: ${permission}`;
-          }),
-      );
+      const enumAction = actioncraft()
+        .schemas({
+          bindSchemas: [permissionLevelSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [permission] = bindArgs;
+          return `Permission: ${permission}`;
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid bind args
       const result = await enumAction("invalid-permission");
@@ -661,16 +633,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle invalid UUID bind arg", async () => {
-      const uuidAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [organizationIdSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [orgId] = bindArgs;
-            return `Organization: ${orgId}`;
-          }),
-      );
+      const uuidAction = actioncraft()
+        .schemas({
+          bindSchemas: [organizationIdSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [orgId] = bindArgs;
+          return `Organization: ${orgId}`;
+        })
+        .build();
 
       const result = await uuidAction("not-a-uuid");
       expect(result.success).toBe(false);
@@ -680,16 +651,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle partial validation failures in multiple bind args", async () => {
-      const multiAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [stringSchema, numberSchema, userSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [str, num, user] = bindArgs;
-            return `${str}-${num}-${user.name}`;
-          }),
-      );
+      const multiAction = actioncraft()
+        .schemas({
+          bindSchemas: [stringSchema, numberSchema, userSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [str, num, user] = bindArgs;
+          return `${str}-${num}-${user.name}`;
+        })
+        .build();
 
       // First arg invalid
       // @ts-expect-error - Testing invalid bind args
@@ -724,16 +694,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle missing bind args", async () => {
-      const multiAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [stringSchema, numberSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [str, num] = bindArgs;
-            return `${str}-${num}`;
-          }),
-      );
+      const multiAction = actioncraft()
+        .schemas({
+          bindSchemas: [stringSchema, numberSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [str, num] = bindArgs;
+          return `${str}-${num}`;
+        })
+        .build();
 
       // @ts-expect-error - Testing missing bind args
       const result = await multiAction("test");
@@ -744,16 +713,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle null and undefined bind args", async () => {
-      const nullableAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [stringSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [str] = bindArgs;
-            return `Value: ${str}`;
-          }),
-      );
+      const nullableAction = actioncraft()
+        .schemas({
+          bindSchemas: [stringSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [str] = bindArgs;
+          return `Value: ${str}`;
+        })
+        .build();
 
       // @ts-expect-error - Testing null bind args
       const nullResult = await nullableAction(null);
@@ -771,16 +739,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle empty array when array is required", async () => {
-      const arrayAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [arraySchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [data] = bindArgs;
-            return data.items.length;
-          }),
-      );
+      const arrayAction = actioncraft()
+        .schemas({
+          bindSchemas: [arraySchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [data] = bindArgs;
+          return data.items.length;
+        })
+        .build();
 
       const emptyArrayData = { items: [] };
       const result = await arrayAction(emptyArrayData);
@@ -791,16 +758,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle schema that always fails", async () => {
-      const alwaysFailAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [alwaysFailSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [value] = bindArgs;
-            return `Value: ${value}`;
-          }),
-      );
+      const alwaysFailAction = actioncraft()
+        .schemas({
+          bindSchemas: [alwaysFailSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [value] = bindArgs;
+          return `Value: ${value}`;
+        })
+        .build();
 
       const result = await alwaysFailAction("any-value");
       expect(result.success).toBe(false);
@@ -812,16 +778,15 @@ describe("Comprehensive Bind Args Validation", () => {
 
   describe("Validation Error Formats", () => {
     it("should return flattened validation errors by default", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [strictSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [data] = bindArgs;
-            return `Data: ${JSON.stringify(data)}`;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          bindSchemas: [strictSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [data] = bindArgs;
+          return `Data: ${JSON.stringify(data)}`;
+        })
+        .build();
 
       const invalidData = {
         requiredField: "",
@@ -836,26 +801,25 @@ describe("Comprehensive Bind Args Validation", () => {
         expect(result.error.type).toBe("BIND_ARGS_VALIDATION");
         expect("issues" in result.error).toBe(true);
         if ("issues" in result.error) {
-          expect(Array.isArray(result.error.issues)).toBe(true);
-          expect(result.error.issues.length).toBeGreaterThan(0);
+          expect(Array.isArray((result.error as any).issues)).toBe(true);
+          expect((result.error as any).issues.length).toBeGreaterThan(0);
         }
       }
     });
 
     it("should return nested validation errors when configured", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "nested",
-          })
-          .schemas({
-            bindSchemas: [strictSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [data] = bindArgs;
-            return `Data: ${JSON.stringify(data)}`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          validationErrorFormat: "nested",
+        })
+        .schemas({
+          bindSchemas: [strictSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [data] = bindArgs;
+          return `Data: ${JSON.stringify(data)}`;
+        })
+        .build();
 
       const invalidData = {
         requiredField: "",
@@ -874,17 +838,16 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should distinguish bind args validation from input validation errors", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({
-            inputSchema: userSchema,
-            bindSchemas: [stringSchema] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [prefix] = bindArgs;
-            return `${prefix}: ${input.name}`;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: userSchema,
+          bindSchemas: [stringSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [prefix] = bindArgs;
+          return `${prefix}: ${input.name}`;
+        })
+        .build();
 
       // Test bind args validation error
       // @ts-expect-error - Testing invalid bind args
@@ -915,16 +878,15 @@ describe("Comprehensive Bind Args Validation", () => {
         return val !== "forbidden";
       }, "Value is forbidden");
 
-      const asyncAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [asyncSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [value] = bindArgs;
-            return `Validated: ${value}`;
-          }),
-      );
+      const asyncAction = actioncraft()
+        .schemas({
+          bindSchemas: [asyncSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [value] = bindArgs;
+          return `Validated: ${value}`;
+        })
+        .build();
 
       // Valid async validation
       const validResult = await asyncAction("allowed");
@@ -949,16 +911,15 @@ describe("Comprehensive Bind Args Validation", () => {
         return val > 0;
       }, "Number must be positive");
 
-      const multiAsyncAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [asyncStringSchema, asyncNumberSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [str, num] = bindArgs;
-            return `${str}: ${num}`;
-          }),
-      );
+      const multiAsyncAction = actioncraft()
+        .schemas({
+          bindSchemas: [asyncStringSchema, asyncNumberSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [str, num] = bindArgs;
+          return `${str}: ${num}`;
+        })
+        .build();
 
       // Valid async validations
       const validResult = await multiAsyncAction("test", 42);
@@ -986,16 +947,15 @@ describe("Comprehensive Bind Args Validation", () => {
         return user.email !== "taken@example.com";
       }, "Email already exists");
 
-      const asyncObjectAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [asyncUserSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [user] = bindArgs;
-            return `Created user: ${user.name}`;
-          }),
-      );
+      const asyncObjectAction = actioncraft()
+        .schemas({
+          bindSchemas: [asyncUserSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [user] = bindArgs;
+          return `Created user: ${user.name}`;
+        })
+        .build();
 
       // Valid async object validation
       const validResult = await asyncObjectAction(commonTestData.validUser);
@@ -1020,16 +980,15 @@ describe("Comprehensive Bind Args Validation", () => {
         return val === "valid";
       }, "Invalid value");
 
-      const slowAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [slowAsyncSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [value] = bindArgs;
-            return `Processed: ${value}`;
-          }),
-      );
+      const slowAction = actioncraft()
+        .schemas({
+          bindSchemas: [slowAsyncSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [value] = bindArgs;
+          return `Processed: ${value}`;
+        })
+        .build();
 
       // This should still work, just take longer
       const result = await slowAction("valid");
@@ -1038,8 +997,8 @@ describe("Comprehensive Bind Args Validation", () => {
   });
 
   describe("ActionBuilder API Bind Args Validation", () => {
-    it("should validate bind args using action() API", async () => {
-      const actionBuilderTest = action()
+    it("should validate bind args using actioncraft() API", async () => {
+      const actionBuilderTest = actioncraft()
         .schemas({
           bindSchemas: [stringSchema, numberSchema] as const,
         })
@@ -1047,7 +1006,7 @@ describe("Comprehensive Bind Args Validation", () => {
           const [str, num] = bindArgs;
           return `${str}: ${num}`;
         })
-        .craft();
+        .build();
 
       const result = await actionBuilderTest("test", 42);
       expectSuccessResult(result, "test: 42");
@@ -1060,8 +1019,8 @@ describe("Comprehensive Bind Args Validation", () => {
       }
     });
 
-    it("should validate complex bind args using action() API", async () => {
-      const complexActionBuilder = action()
+    it("should validate complex bind args using actioncraft() API", async () => {
+      const complexActionBuilder = actioncraft()
         .schemas({
           inputSchema: stringSchema,
           bindSchemas: [userSchema, permissionLevelSchema] as const,
@@ -1070,7 +1029,7 @@ describe("Comprehensive Bind Args Validation", () => {
           const [user, permission] = bindArgs;
           return `${user.name} (${permission}): ${input}`;
         })
-        .craft();
+        .build();
 
       const result = await complexActionBuilder(
         commonTestData.validUser,
@@ -1083,16 +1042,15 @@ describe("Comprehensive Bind Args Validation", () => {
 
   describe("Edge Cases and Boundary Conditions", () => {
     it("should handle zero bind args", async () => {
-      const noBindArgsAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            expect(bindArgs).toEqual([]);
-            return `Input only: ${input}`;
-          }),
-      );
+      const noBindArgsAction = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          expect(bindArgs).toEqual([]);
+          return `Input only: ${input}`;
+        })
+        .build();
 
       const result = await noBindArgsAction("test");
       expectSuccessResult(result, "Input only: test");
@@ -1102,32 +1060,30 @@ describe("Comprehensive Bind Args Validation", () => {
       const largeStringSchema = z.string().max(10000);
       const largeString = "x".repeat(5000);
 
-      const largeValueAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [largeStringSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [str] = bindArgs;
-            return str.length;
-          }),
-      );
+      const largeValueAction = actioncraft()
+        .schemas({
+          bindSchemas: [largeStringSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [str] = bindArgs;
+          return str.length;
+        })
+        .build();
 
       const result = await largeValueAction(largeString);
       expectSuccessResult(result, 5000);
     });
 
     it("should handle bind args with special characters", async () => {
-      const specialCharsAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [stringSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [str] = bindArgs;
-            return `Special: ${str}`;
-          }),
-      );
+      const specialCharsAction = actioncraft()
+        .schemas({
+          bindSchemas: [stringSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [str] = bindArgs;
+          return `Special: ${str}`;
+        })
+        .build();
 
       const specialString = "!@#$%^&*()_+-=[]{}|;':\",./<>?`~";
       const result = await specialCharsAction(specialString);
@@ -1135,16 +1091,15 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle bind args with unicode characters", async () => {
-      const unicodeAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [stringSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [str] = bindArgs;
-            return `Unicode: ${str}`;
-          }),
-      );
+      const unicodeAction = actioncraft()
+        .schemas({
+          bindSchemas: [stringSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [str] = bindArgs;
+          return `Unicode: ${str}`;
+        })
+        .build();
 
       const unicodeString = "🚀 Hello 世界 🌍 Здравствуй мир";
       const result = await unicodeAction(unicodeString);
@@ -1152,21 +1107,20 @@ describe("Comprehensive Bind Args Validation", () => {
     });
 
     it("should handle deeply nested object bind args", async () => {
-      const deepNestedAction = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [nestedSchema] as const,
-          })
-          .handler(async ({ bindArgs }) => {
-            const [data] = bindArgs;
-            return {
-              name: data.user.profile.name,
-              theme: data.user.settings.theme,
-              notifications: data.user.settings.notifications,
-              metadataKeys: Object.keys(data.metadata),
-            };
-          }),
-      );
+      const deepNestedAction = actioncraft()
+        .schemas({
+          bindSchemas: [nestedSchema] as const,
+        })
+        .handler(async ({ bindArgs }) => {
+          const [data] = bindArgs;
+          return {
+            name: data.user.profile.name,
+            theme: data.user.settings.theme,
+            notifications: data.user.settings.notifications,
+            metadataKeys: Object.keys(data.metadata),
+          };
+        })
+        .build();
 
       const result = await deepNestedAction(validNestedData);
       expectSuccessResult(result, {

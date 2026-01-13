@@ -1,23 +1,22 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import {
   stringSchema,
   numberSchema,
   nestedSchema,
   validNestedData,
 } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 
 describe("Input Validation", () => {
   describe("Basic Validation", () => {
     it("should pass with valid input", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const result = await action("hello world");
       expect(result.success).toBe(true);
@@ -27,13 +26,12 @@ describe("Input Validation", () => {
     });
 
     it("should fail with invalid input", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return input;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return input;
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid input
       const result = await action(123);
@@ -44,14 +42,13 @@ describe("Input Validation", () => {
     });
 
     it("should handle complex object validation", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: nestedSchema })
-          .handler(async ({ input }) => {
-            const data = input as typeof validNestedData;
-            return `Hello ${data.user.profile.name}`;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: nestedSchema })
+        .handler(async ({ input }) => {
+          const data = input as typeof validNestedData;
+          return `Hello ${data.user.profile.name}`;
+        })
+        .build();
 
       // Test valid nested data
       const validResult = await action(validNestedData);
@@ -83,13 +80,12 @@ describe("Input Validation", () => {
     });
 
     it("should handle null and undefined inputs", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return input;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return input;
+        })
+        .build();
 
       // @ts-expect-error - Testing null input
       const nullResult = await action(null);
@@ -126,13 +122,12 @@ describe("Input Validation", () => {
         },
       } as const;
 
-      const numberAction = craft((action) =>
-        action
-          .schemas({ inputSchema: anyNumberSchema })
-          .handler(async ({ input }) => {
-            return (input as number) * 2;
-          }),
-      );
+      const numberAction = actioncraft()
+        .schemas({ inputSchema: anyNumberSchema })
+        .handler(async ({ input }) => {
+          return (input as number) * 2;
+        })
+        .build();
 
       // Test zero
       const zeroResult = await numberAction(0);
@@ -149,13 +144,12 @@ describe("Input Validation", () => {
       }
 
       // Test positive numbers with the original schema
-      const positiveAction = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => {
-            return (input as number) * 2;
-          }),
-      );
+      const positiveAction = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => {
+          return (input as number) * 2;
+        })
+        .build();
 
       const positiveResult = await positiveAction(5);
       expect(positiveResult.success).toBe(true);
@@ -197,13 +191,12 @@ describe("Input Validation", () => {
         },
       } as const;
 
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: objectSchema })
-          .handler(async ({ input }) => {
-            return input;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: objectSchema })
+        .handler(async ({ input }) => {
+          return input;
+        })
+        .build();
 
       // Test empty object
       const emptyObjectResult = await action({});
@@ -217,13 +210,12 @@ describe("Input Validation", () => {
     it("should allow optional input to be omitted when schema allows", async () => {
       const optionalStringSchema = z.string().optional();
 
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: optionalStringSchema })
-          .handler(async ({ input }) => {
-            return input ? `Got: ${input}` : "NO_INPUT";
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: optionalStringSchema })
+        .handler(async ({ input }) => {
+          return input ? `Got: ${input}` : "NO_INPUT";
+        })
+        .build();
 
       // Call without providing input (undefined)
       const omittedResult = await action(

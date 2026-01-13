@@ -4,7 +4,7 @@ import {
   convertToClientError,
 } from "../../../src/classes/executor/transformation";
 import { INTERNAL_ERROR_TYPES } from "../../../src/types/errors";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 // -----------------------------------------------------------------------------
 // serializeRawInput

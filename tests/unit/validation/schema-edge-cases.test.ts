@@ -1,5 +1,5 @@
-import { craft } from "../../../src/index";
-import { describe, it, expect } from "../../setup";
+import { actioncraft } from "../../../src/index";
+import { describe, it, expect } from "vitest";
 
 describe("Schema Edge Cases", () => {
   it("should handle schemas that return no issues for invalid data", async () => {
@@ -17,13 +17,12 @@ describe("Schema Edge Cases", () => {
       },
     } as const;
 
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: permissiveSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: permissiveSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     // Should succeed with any input
     const result1 = await action("string");
@@ -56,13 +55,12 @@ describe("Schema Edge Cases", () => {
       },
     } as const;
 
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: transformingSchema })
-        .handler(async ({ input }) => {
-          return `Transformed: ${input as string}`;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: transformingSchema })
+      .handler(async ({ input }) => {
+        return `Transformed: ${input as string}`;
+      })
+      .build();
 
     const result = await action("hello world");
     expect(result.success).toBe(true);
@@ -90,35 +88,32 @@ describe("Schema Edge Cases", () => {
       },
     } as const;
 
-    const defaultAction = craft((action) =>
-      action
-        .schemas({ inputSchema: rootErrorSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const defaultAction = actioncraft()
+      .schemas({ inputSchema: rootErrorSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
-    const nestedAction = craft((action) =>
-      action
-        .config({
-          validationErrorFormat: "nested",
-        })
-        .schemas({ inputSchema: rootErrorSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const nestedAction = actioncraft()
+      .config({
+        validationErrorFormat: "nested",
+      })
+      .schemas({ inputSchema: rootErrorSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
-    const flattenedAction = craft((action) =>
-      action
-        .config({
-          validationErrorFormat: "flattened",
-        })
-        .schemas({ inputSchema: rootErrorSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const flattenedAction = actioncraft()
+      .config({
+        validationErrorFormat: "flattened",
+      })
+      .schemas({ inputSchema: rootErrorSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     const defaultResult = await defaultAction("invalid");
     expect(defaultResult.success).toBe(false);

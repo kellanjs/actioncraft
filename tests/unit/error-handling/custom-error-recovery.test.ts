@@ -1,109 +1,108 @@
-import { craft, initial } from "../../../src/index";
+import { actioncraft, initial } from "../../../src/index";
 import { stringSchema } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 
 describe("Custom Error Types and Recovery", () => {
   describe("Comprehensive Custom Error Type Coverage", () => {
     it("should handle all possible custom error parameter combinations", async () => {
-      const comprehensiveErrorAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            // No parameters
-            noParamsError: () => ({
-              type: "NO_PARAMS_ERROR" as const,
-            }),
-
-            // Single parameter
-            singleParamError: (message: string) => ({
-              type: "SINGLE_PARAM_ERROR" as const,
-              message,
-            }),
-
-            // Multiple parameters
-            multiParamError: (
-              code: number,
-              message: string,
-              details: Record<string, any>,
-            ) => ({
-              type: "MULTI_PARAM_ERROR" as const,
-              code,
-              message,
-              details,
-            }),
-
-            // Optional parameters
-            optionalParamError: (
-              message: string,
-              code?: number,
-              metadata?: any,
-            ) => ({
-              type: "OPTIONAL_PARAM_ERROR" as const,
-              message,
-              code: code ?? 500,
-              metadata: metadata ?? {},
-            }),
-
-            // Rest parameters
-            restParamError: (message: string, ...args: any[]) => ({
-              type: "REST_PARAM_ERROR" as const,
-              message,
-              args,
-              argCount: args.length,
-            }),
-
-            // Complex object parameters
-            complexObjectError: (config: {
-              severity: "low" | "medium" | "high" | "critical";
-              category: string;
-              metadata?: Record<string, any>;
-              retryable?: boolean;
-            }) => ({
-              type: "COMPLEX_OBJECT_ERROR" as const,
-              ...config,
-              timestamp: Date.now(),
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            switch (input) {
-              case "no-params":
-                return errors.noParamsError();
-
-              case "single-param":
-                return errors.singleParamError("Single parameter test");
-
-              case "multi-param":
-                return errors.multiParamError(400, "Multi parameter test", {
-                  userId: "123",
-                });
-
-              case "optional-param-minimal":
-                return errors.optionalParamError("Minimal optional params");
-
-              case "optional-param-full":
-                return errors.optionalParamError("Full optional params", 404, {
-                  extra: "data",
-                });
-
-              case "rest-param":
-                return errors.restParamError("Rest params test", "arg1", 42, {
-                  nested: true,
-                });
-
-              case "complex-object":
-                return errors.complexObjectError({
-                  severity: "critical",
-                  category: "system",
-                  metadata: { component: "database" },
-                  retryable: false,
-                });
-
-              default:
-                return "success";
-            }
+      const comprehensiveErrorAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          // No parameters
+          noParamsError: () => ({
+            type: "NO_PARAMS_ERROR" as const,
           }),
-      );
+
+          // Single parameter
+          singleParamError: (message: string) => ({
+            type: "SINGLE_PARAM_ERROR" as const,
+            message,
+          }),
+
+          // Multiple parameters
+          multiParamError: (
+            code: number,
+            message: string,
+            details: Record<string, any>,
+          ) => ({
+            type: "MULTI_PARAM_ERROR" as const,
+            code,
+            message,
+            details,
+          }),
+
+          // Optional parameters
+          optionalParamError: (
+            message: string,
+            code?: number,
+            metadata?: any,
+          ) => ({
+            type: "OPTIONAL_PARAM_ERROR" as const,
+            message,
+            code: code ?? 500,
+            metadata: metadata ?? {},
+          }),
+
+          // Rest parameters
+          restParamError: (message: string, ...args: any[]) => ({
+            type: "REST_PARAM_ERROR" as const,
+            message,
+            args,
+            argCount: args.length,
+          }),
+
+          // Complex object parameters
+          complexObjectError: (config: {
+            severity: "low" | "medium" | "high" | "critical";
+            category: string;
+            metadata?: Record<string, any>;
+            retryable?: boolean;
+          }) => ({
+            type: "COMPLEX_OBJECT_ERROR" as const,
+            ...config,
+            timestamp: Date.now(),
+          }),
+        })
+        .handler(async ({ input, errors }) => {
+          switch (input) {
+            case "no-params":
+              return errors.noParamsError();
+
+            case "single-param":
+              return errors.singleParamError("Single parameter test");
+
+            case "multi-param":
+              return errors.multiParamError(400, "Multi parameter test", {
+                userId: "123",
+              });
+
+            case "optional-param-minimal":
+              return errors.optionalParamError("Minimal optional params");
+
+            case "optional-param-full":
+              return errors.optionalParamError("Full optional params", 404, {
+                extra: "data",
+              });
+
+            case "rest-param":
+              return errors.restParamError("Rest params test", "arg1", 42, {
+                nested: true,
+              });
+
+            case "complex-object":
+              return errors.complexObjectError({
+                severity: "critical",
+                category: "system",
+                metadata: { component: "database" },
+                retryable: false,
+              });
+
+            default:
+              return "success";
+          }
+        })
+        .build();
 
       // Test no parameters
       const noParamsResult = await comprehensiveErrorAction("no-params");
@@ -182,62 +181,57 @@ describe("Custom Error Types and Recovery", () => {
     });
 
     it("should handle generic and conditional error types", async () => {
-      const genericErrorAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: z.object({
-              errorType: z.string(),
-              payload: z.any(),
-            }),
-          })
-          .errors({
-            genericError: <T>(
-              type: string,
-              payload: T,
-              condition?: boolean,
-            ) => ({
-              type: "GENERIC_ERROR" as const,
-              errorType: type,
-              payload,
-              conditional: condition ?? false,
-              timestamp: Date.now(),
-            }),
-
-            conditionalError: (
-              shouldIncludeDetails: boolean,
-              message: string,
-              details?: any,
-            ) => {
-              const baseError = {
-                type: "CONDITIONAL_ERROR" as const,
-                message,
-              };
-
-              return shouldIncludeDetails && details
-                ? { ...baseError, details }
-                : baseError;
-            },
-          })
-          .handler(async ({ input, errors }) => {
-            if (input.errorType === "generic") {
-              return errors.genericError(input.errorType, input.payload, true);
-            }
-
-            if (input.errorType === "conditional-with-details") {
-              return errors.conditionalError(true, "Conditional error", {
-                extra: "info",
-              });
-            }
-
-            if (input.errorType === "conditional-without-details") {
-              return errors.conditionalError(false, "Conditional error", {
-                extra: "info",
-              });
-            }
-
-            return "success";
+      const genericErrorAction = actioncraft()
+        .schemas({
+          inputSchema: z.object({
+            errorType: z.string(),
+            payload: z.any(),
           }),
-      );
+        })
+        .errors({
+          genericError: <T>(type: string, payload: T, condition?: boolean) => ({
+            type: "GENERIC_ERROR" as const,
+            errorType: type,
+            payload,
+            conditional: condition ?? false,
+            timestamp: Date.now(),
+          }),
+
+          conditionalError: (
+            shouldIncludeDetails: boolean,
+            message: string,
+            details?: any,
+          ) => {
+            const baseError = {
+              type: "CONDITIONAL_ERROR" as const,
+              message,
+            };
+
+            return shouldIncludeDetails && details
+              ? { ...baseError, details }
+              : baseError;
+          },
+        })
+        .handler(async ({ input, errors }) => {
+          if (input.errorType === "generic") {
+            return errors.genericError(input.errorType, input.payload, true);
+          }
+
+          if (input.errorType === "conditional-with-details") {
+            return errors.conditionalError(true, "Conditional error", {
+              extra: "info",
+            });
+          }
+
+          if (input.errorType === "conditional-without-details") {
+            return errors.conditionalError(false, "Conditional error", {
+              extra: "info",
+            });
+          }
+
+          return "success";
+        })
+        .build();
 
       // Test generic error
       const genericResult = await genericErrorAction({
@@ -286,45 +280,44 @@ describe("Custom Error Types and Recovery", () => {
       const baseDelay = 100;
       const maxRetries = 4;
 
-      const backoffAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            backoffError: (
-              attempt: number,
-              nextRetryDelay: number,
-              totalDelay: number,
-            ) => ({
-              type: "BACKOFF_ERROR" as const,
-              attempt,
-              nextRetryDelay,
-              totalDelay,
-              retryable: attempt < maxRetries,
-              strategy: "exponential_backoff",
-            }),
-            maxAttemptsError: (totalAttempts: number, totalTime: number) => ({
-              type: "MAX_ATTEMPTS_ERROR" as const,
-              totalAttempts,
-              totalTime,
-              retryable: false,
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            attemptCount++;
-            const delay = baseDelay * Math.pow(2, attemptCount - 1);
-            const totalDelay = baseDelay * (Math.pow(2, attemptCount) - 1);
-
-            if (input === "fail-with-backoff" && attemptCount <= maxRetries) {
-              return errors.backoffError(attemptCount, delay * 2, totalDelay);
-            }
-
-            if (input === "fail-max-attempts" && attemptCount > maxRetries) {
-              return errors.maxAttemptsError(attemptCount, totalDelay);
-            }
-
-            return `Success after ${attemptCount} attempts`;
+      const backoffAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          backoffError: (
+            attempt: number,
+            nextRetryDelay: number,
+            totalDelay: number,
+          ) => ({
+            type: "BACKOFF_ERROR" as const,
+            attempt,
+            nextRetryDelay,
+            totalDelay,
+            retryable: attempt < maxRetries,
+            strategy: "exponential_backoff",
           }),
-      );
+          maxAttemptsError: (totalAttempts: number, totalTime: number) => ({
+            type: "MAX_ATTEMPTS_ERROR" as const,
+            totalAttempts,
+            totalTime,
+            retryable: false,
+          }),
+        })
+        .handler(async ({ input, errors }) => {
+          attemptCount++;
+          const delay = baseDelay * Math.pow(2, attemptCount - 1);
+          const totalDelay = baseDelay * (Math.pow(2, attemptCount) - 1);
+
+          if (input === "fail-with-backoff" && attemptCount <= maxRetries) {
+            return errors.backoffError(attemptCount, delay * 2, totalDelay);
+          }
+
+          if (input === "fail-max-attempts" && attemptCount > maxRetries) {
+            return errors.maxAttemptsError(attemptCount, totalDelay);
+          }
+
+          return `Success after ${attemptCount} attempts`;
+        })
+        .build();
 
       // Test exponential backoff progression
       attemptCount = 0;
@@ -367,72 +360,71 @@ describe("Custom Error Types and Recovery", () => {
         cache: { available: 1, total: 1 },
       };
 
-      const bulkheadAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: z.object({
-              resource: z.enum(["database", "api", "cache"]),
-              operation: z.string(),
-            }),
-          })
-          .errors({
-            resourceExhausted: (
-              resource: string,
-              available: number,
-              total: number,
-            ) => ({
-              type: "RESOURCE_EXHAUSTED" as const,
-              resource,
-              available,
-              total,
-              utilizationPercent: ((total - available) / total) * 100,
-            }),
-            operationFailed: (
-              resource: string,
-              operation: string,
-              reason: string,
-            ) => ({
-              type: "OPERATION_FAILED" as const,
-              resource,
-              operation,
-              reason,
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            const pool = resourcePools[input.resource];
-
-            if (pool.available <= 0) {
-              return errors.resourceExhausted(
-                input.resource,
-                pool.available,
-                pool.total,
-              );
-            }
-
-            // Simulate resource acquisition
-            pool.available--;
-
-            try {
-              if (input.operation === "fail") {
-                throw new Error("Simulated operation failure");
-              }
-
-              // Simulate work
-              await new Promise((resolve) => setTimeout(resolve, 10));
-
-              return `${input.operation} completed on ${input.resource}`;
-            } catch (error) {
-              return errors.operationFailed(
-                input.resource,
-                input.operation,
-                error instanceof Error ? error.message : String(error),
-              );
-            } finally {
-              // Release resource
-              pool.available++;
-            }
+      const bulkheadAction = actioncraft()
+        .schemas({
+          inputSchema: z.object({
+            resource: z.enum(["database", "api", "cache"]),
+            operation: z.string(),
           }),
-      );
+        })
+        .errors({
+          resourceExhausted: (
+            resource: string,
+            available: number,
+            total: number,
+          ) => ({
+            type: "RESOURCE_EXHAUSTED" as const,
+            resource,
+            available,
+            total,
+            utilizationPercent: ((total - available) / total) * 100,
+          }),
+          operationFailed: (
+            resource: string,
+            operation: string,
+            reason: string,
+          ) => ({
+            type: "OPERATION_FAILED" as const,
+            resource,
+            operation,
+            reason,
+          }),
+        })
+        .handler(async ({ input, errors }) => {
+          const pool = resourcePools[input.resource];
+
+          if (pool.available <= 0) {
+            return errors.resourceExhausted(
+              input.resource,
+              pool.available,
+              pool.total,
+            );
+          }
+
+          // Simulate resource acquisition
+          pool.available--;
+
+          try {
+            if (input.operation === "fail") {
+              throw new Error("Simulated operation failure");
+            }
+
+            // Simulate work
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            return `${input.operation} completed on ${input.resource}`;
+          } catch (error) {
+            return errors.operationFailed(
+              input.resource,
+              input.operation,
+              error instanceof Error ? error.message : String(error),
+            );
+          } finally {
+            // Release resource
+            pool.available++;
+          }
+        })
+        .build();
 
       // Exhaust database pool
       const dbOperations: Promise<any>[] = [];
@@ -469,61 +461,60 @@ describe("Custom Error Types and Recovery", () => {
         cache: true,
       };
 
-      const fallbackAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            degradedService: (
-              primaryFailed: boolean,
-              secondaryFailed: boolean,
-              cacheFailed: boolean,
-              fallbackUsed: string,
-            ) => ({
-              type: "DEGRADED_SERVICE" as const,
-              primaryFailed,
-              secondaryFailed,
-              cacheFailed,
-              fallbackUsed,
-              serviceLevel: "degraded",
-            }),
-            allServicesFailed: (attempts: string[]) => ({
-              type: "ALL_SERVICES_FAILED" as const,
-              attempts,
-              serviceLevel: "unavailable",
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            const attempts: string[] = [];
-
-            // Try primary service
-            if (serviceHealth.primary && input !== "fail-primary") {
-              attempts.push("primary");
-              return { data: "primary-data", source: "primary" };
-            }
-            attempts.push("primary-failed");
-
-            // Try secondary service
-            if (
-              serviceHealth.secondary &&
-              input !== "fail-secondary" &&
-              input !== "fail-cache"
-            ) {
-              attempts.push("secondary");
-              return errors.degradedService(true, false, false, "secondary");
-            }
-            attempts.push("secondary-failed");
-
-            // Try cache fallback
-            if (serviceHealth.cache && input !== "fail-cache") {
-              attempts.push("cache");
-              return errors.degradedService(true, true, false, "cache");
-            }
-            attempts.push("cache-failed");
-
-            // All services failed
-            return errors.allServicesFailed(attempts);
+      const fallbackAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          degradedService: (
+            primaryFailed: boolean,
+            secondaryFailed: boolean,
+            cacheFailed: boolean,
+            fallbackUsed: string,
+          ) => ({
+            type: "DEGRADED_SERVICE" as const,
+            primaryFailed,
+            secondaryFailed,
+            cacheFailed,
+            fallbackUsed,
+            serviceLevel: "degraded",
           }),
-      );
+          allServicesFailed: (attempts: string[]) => ({
+            type: "ALL_SERVICES_FAILED" as const,
+            attempts,
+            serviceLevel: "unavailable",
+          }),
+        })
+        .handler(async ({ input, errors }) => {
+          const attempts: string[] = [];
+
+          // Try primary service
+          if (serviceHealth.primary && input !== "fail-primary") {
+            attempts.push("primary");
+            return { data: "primary-data", source: "primary" };
+          }
+          attempts.push("primary-failed");
+
+          // Try secondary service
+          if (
+            serviceHealth.secondary &&
+            input !== "fail-secondary" &&
+            input !== "fail-cache"
+          ) {
+            attempts.push("secondary");
+            return errors.degradedService(true, false, false, "secondary");
+          }
+          attempts.push("secondary-failed");
+
+          // Try cache fallback
+          if (serviceHealth.cache && input !== "fail-cache") {
+            attempts.push("cache");
+            return errors.degradedService(true, true, false, "cache");
+          }
+          attempts.push("cache-failed");
+
+          // All services failed
+          return errors.allServicesFailed(attempts);
+        })
+        .build();
 
       // Test primary service success
       const primaryResult = await fallbackAction("success");
@@ -560,56 +551,52 @@ describe("Custom Error Types and Recovery", () => {
 
   describe("Error Recovery with State Management", () => {
     it("should implement stateful error recovery with useActionState", async () => {
-      const recoveryAction = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            recoverableError: (
-              attempt: number,
-              canRecover: boolean,
-              state?: any,
-            ) => ({
-              type: "RECOVERABLE_ERROR" as const,
-              attempt,
-              canRecover,
-              previousState: state,
-            }),
-            recoverySuccess: (attempt: number, recoveredFrom: any) => ({
-              type: "RECOVERY_SUCCESS" as const,
-              attempt,
-              recoveredFrom,
-            }),
-          })
-          .handler(async ({ input, errors, metadata }) => {
-            const prevState = metadata.prevState;
-            let attempt = 1;
-
-            if (
-              prevState &&
-              !prevState.success &&
-              (prevState.error as any).type === "RECOVERABLE_ERROR"
-            ) {
-              attempt = (prevState.error as any).attempt + 1;
-            }
-
-            if (input === "recover" && attempt <= 3) {
-              if (attempt === 3) {
-                return errors.recoverySuccess(
-                  attempt,
-                  (prevState as any)?.error,
-                );
-              }
-              return errors.recoverableError(attempt, true, prevState);
-            }
-
-            if (input === "no-recover") {
-              return errors.recoverableError(attempt, false);
-            }
-
-            return `Success on attempt ${attempt}`;
+      const recoveryAction = actioncraft()
+        .config({ useActionState: true })
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          recoverableError: (
+            attempt: number,
+            canRecover: boolean,
+            state?: any,
+          ) => ({
+            type: "RECOVERABLE_ERROR" as const,
+            attempt,
+            canRecover,
+            previousState: state,
           }),
-      );
+          recoverySuccess: (attempt: number, recoveredFrom: any) => ({
+            type: "RECOVERY_SUCCESS" as const,
+            attempt,
+            recoveredFrom,
+          }),
+        })
+        .handler(async ({ input, errors, metadata }) => {
+          const prevState = metadata.prevState;
+          let attempt = 1;
+
+          if (
+            prevState &&
+            !prevState.success &&
+            (prevState.error as any).type === "RECOVERABLE_ERROR"
+          ) {
+            attempt = (prevState.error as any).attempt + 1;
+          }
+
+          if (input === "recover" && attempt <= 3) {
+            if (attempt === 3) {
+              return errors.recoverySuccess(attempt, (prevState as any)?.error);
+            }
+            return errors.recoverableError(attempt, true, prevState);
+          }
+
+          if (input === "no-recover") {
+            return errors.recoverableError(attempt, false);
+          }
+
+          return `Success on attempt ${attempt}`;
+        })
+        .build();
 
       // Test recovery progression
       let state = initial(recoveryAction);
@@ -651,69 +638,67 @@ describe("Custom Error Types and Recovery", () => {
         | "recovered"
         | "failed";
 
-      const stateTransitionAction = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            stateTransitionError: (
-              currentState: RecoveryState,
-              nextState: RecoveryState,
-              transitionReason: string,
-              metadata: Record<string, any>,
-            ) => ({
-              type: "STATE_TRANSITION_ERROR" as const,
+      const stateTransitionAction = actioncraft()
+        .config({ useActionState: true })
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          stateTransitionError: (
+            currentState: RecoveryState,
+            nextState: RecoveryState,
+            transitionReason: string,
+            metadata: Record<string, any>,
+          ) => ({
+            type: "STATE_TRANSITION_ERROR" as const,
+            currentState,
+            nextState,
+            transitionReason,
+            metadata,
+            timestamp: Date.now(),
+          }),
+        })
+        .handler(async ({ input, errors, metadata }) => {
+          const prevState = metadata.prevState;
+          let currentState: RecoveryState = "initial";
+          let attemptCount = 0;
+
+          if (
+            prevState &&
+            !prevState.success &&
+            (prevState.error as any).type === "STATE_TRANSITION_ERROR"
+          ) {
+            currentState = (prevState.error as any).nextState;
+            attemptCount = (prevState.error as any).metadata.attemptCount || 0;
+          }
+
+          attemptCount++;
+
+          let nextState: RecoveryState;
+          if (currentState === "initial") {
+            nextState = "retrying";
+          } else if (currentState === "retrying") {
+            nextState = attemptCount >= 3 ? "degraded" : "retrying";
+          } else if (currentState === "degraded") {
+            nextState = "recovered";
+          } else {
+            nextState = "initial";
+          }
+
+          if (input === "transition" && nextState !== "recovered") {
+            return errors.stateTransitionError(
               currentState,
               nextState,
-              transitionReason,
-              metadata,
-              timestamp: Date.now(),
-            }),
-          })
-          .handler(async ({ input, errors, metadata }) => {
-            const prevState = metadata.prevState;
-            let currentState: RecoveryState = "initial";
-            let attemptCount = 0;
+              `Transitioning from ${currentState} to ${nextState}`,
+              { attemptCount, input },
+            );
+          }
 
-            if (
-              prevState &&
-              !prevState.success &&
-              (prevState.error as any).type === "STATE_TRANSITION_ERROR"
-            ) {
-              currentState = (prevState.error as any).nextState;
-              attemptCount =
-                (prevState.error as any).metadata.attemptCount || 0;
-            }
-
-            attemptCount++;
-
-            let nextState: RecoveryState;
-            if (currentState === "initial") {
-              nextState = "retrying";
-            } else if (currentState === "retrying") {
-              nextState = attemptCount >= 3 ? "degraded" : "retrying";
-            } else if (currentState === "degraded") {
-              nextState = "recovered";
-            } else {
-              nextState = "initial";
-            }
-
-            if (input === "transition" && nextState !== "recovered") {
-              return errors.stateTransitionError(
-                currentState,
-                nextState,
-                `Transitioning from ${currentState} to ${nextState}`,
-                { attemptCount, input },
-              );
-            }
-
-            return {
-              state: nextState,
-              attempts: attemptCount,
-              recovered: nextState === "recovered",
-            };
-          }),
-      );
+          return {
+            state: nextState,
+            attempts: attemptCount,
+            recovered: nextState === "recovered",
+          };
+        })
+        .build();
 
       let state = initial(stateTransitionAction);
       const transitions: string[] = [];

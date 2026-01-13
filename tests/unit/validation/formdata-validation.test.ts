@@ -1,24 +1,23 @@
-import { craft, initial } from "../../../src/index";
+import { actioncraft, initial } from "../../../src/index";
 import {
   basicFormDataOnlySchema,
   createFormData,
 } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { zfd } from "zod-form-data";
 
 describe("FormData Validation Tests", () => {
   describe("Input Type Validation", () => {
     it("should validate that input is actually FormData when required", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "flattened",
-          })
-          .schemas({ inputSchema: basicFormDataOnlySchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "flattened",
+        })
+        .schemas({ inputSchema: basicFormDataOnlySchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with regular object - should fail
       const result = await action(initial(action), {
@@ -45,15 +44,14 @@ describe("FormData Validation Tests", () => {
         isActive: zfd.checkbox(),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "nested",
-          })
-          .schemas({ inputSchema: strictSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "nested",
+        })
+        .schemas({ inputSchema: strictSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with invalid data types
       const formData = createFormData({
@@ -84,15 +82,14 @@ describe("FormData Validation Tests", () => {
         optionalAge: zfd.numeric(z.number().optional()),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "nested",
-          })
-          .schemas({ inputSchema: mixedSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "nested",
+        })
+        .schemas({ inputSchema: mixedSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with missing required fields
       const incompleteFormData = createFormData({
@@ -127,15 +124,14 @@ describe("FormData Validation Tests", () => {
         ),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "flattened",
-          })
-          .schemas({ inputSchema: fileSizeSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "flattened",
+        })
+        .schemas({ inputSchema: fileSizeSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Create a file that exceeds the size limit
       const largeContent = "x".repeat(2048); // 2KB
@@ -174,15 +170,14 @@ describe("FormData Validation Tests", () => {
         ),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "flattened",
-          })
-          .schemas({ inputSchema: fileTypeSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "flattened",
+        })
+        .schemas({ inputSchema: fileTypeSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Create a file with wrong type
       const textFile = new File(["Some text content"], "document.txt", {
@@ -225,15 +220,14 @@ describe("FormData Validation Tests", () => {
         ),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "flattened",
-          })
-          .schemas({ inputSchema: multiFileSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "flattened",
+        })
+        .schemas({ inputSchema: multiFileSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const formData = createFormData({
         name: "Test User",
@@ -274,15 +268,14 @@ describe("FormData Validation Tests", () => {
         optionalFile: zfd.file().optional(),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "nested",
-          })
-          .schemas({ inputSchema: fileRequirementSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "nested",
+        })
+        .schemas({ inputSchema: fileRequirementSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with missing required file
       const formData = createFormData({
@@ -322,15 +315,14 @@ describe("FormData Validation Tests", () => {
         ),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "nested",
-          })
-          .schemas({ inputSchema: numericSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "nested",
+        })
+        .schemas({ inputSchema: numericSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with invalid numeric values
       const formData = createFormData({
@@ -359,15 +351,14 @@ describe("FormData Validation Tests", () => {
         count: zfd.numeric(z.number().int("Must be an integer")),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "flattened",
-          })
-          .schemas({ inputSchema: numericSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "flattened",
+        })
+        .schemas({ inputSchema: numericSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with non-numeric string
       const formData = createFormData({
@@ -395,15 +386,14 @@ describe("FormData Validation Tests", () => {
         newsletter: zfd.checkbox(), // Optional, defaults to false
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "nested",
-          })
-          .schemas({ inputSchema: checkboxSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "nested",
+        })
+        .schemas({ inputSchema: checkboxSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with unchecked required checkbox
       const formData = createFormData({
@@ -432,19 +422,18 @@ describe("FormData Validation Tests", () => {
         option3: zfd.checkbox(), // Not present (false)
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: flexibleCheckboxSchema })
-          .handler(async ({ input }) => ({
-            name: input.name,
-            option1: input.option1,
-            option2: input.option2,
-            option3: input.option3,
-          })),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: flexibleCheckboxSchema })
+        .handler(async ({ input }) => ({
+          name: input.name,
+          option1: input.option1,
+          option2: input.option2,
+          option3: input.option3,
+        }))
+        .build();
 
       const formData = createFormData({
         name: "Checkbox Test",
@@ -473,15 +462,14 @@ describe("FormData Validation Tests", () => {
         ),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "flattened",
-          })
-          .schemas({ inputSchema: arraySchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "flattened",
+        })
+        .schemas({ inputSchema: arraySchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const formData = createFormData({
         name: "Array Test",
@@ -513,15 +501,14 @@ describe("FormData Validation Tests", () => {
         optionalTags: zfd.repeatableOfType(zfd.text()),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "nested",
-          })
-          .schemas({ inputSchema: arrayRequirementSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "nested",
+        })
+        .schemas({ inputSchema: arrayRequirementSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with empty required array
       const formData = createFormData({
@@ -565,15 +552,14 @@ describe("FormData Validation Tests", () => {
           },
         );
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "nested",
-          })
-          .schemas({ inputSchema: interdependentSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "nested",
+        })
+        .schemas({ inputSchema: interdependentSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with hasAccount checked but missing credentials
       const formData = createFormData({
@@ -612,15 +598,14 @@ describe("FormData Validation Tests", () => {
           },
         );
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            validationErrorFormat: "nested",
-          })
-          .schemas({ inputSchema: conditionalFileSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          validationErrorFormat: "nested",
+        })
+        .schemas({ inputSchema: conditionalFileSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Test with image type selected but no image file
       const formData = createFormData({
@@ -644,19 +629,18 @@ describe("FormData Validation Tests", () => {
         multipleValues: zfd.repeatableOfType(zfd.text()),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: duplicateHandlingSchema })
-          .handler(async ({ input }) => ({
-            singleValueCount: input.singleValue.length,
-            singleValues: input.singleValue,
-            multipleCount: input.multipleValues.length,
-            multipleValues: input.multipleValues,
-          })),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: duplicateHandlingSchema })
+        .handler(async ({ input }) => ({
+          singleValueCount: input.singleValue.length,
+          singleValues: input.singleValue,
+          multipleCount: input.multipleValues.length,
+          multipleValues: input.multipleValues,
+        }))
+        .build();
 
       const formData = new FormData();
       // Add single value multiple times - zfd collects all values into an array
@@ -694,19 +678,18 @@ describe("FormData Validation Tests", () => {
         fieldWithNumbers123: zfd.text(),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: specialCharSchema })
-          .handler(async ({ input }) => ({
-            dashes: input["field-with-dashes"],
-            underscores: input.field_with_underscores,
-            spaces: input["field with spaces"],
-            numbers: input.fieldWithNumbers123,
-          })),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: specialCharSchema })
+        .handler(async ({ input }) => ({
+          dashes: input["field-with-dashes"],
+          underscores: input.field_with_underscores,
+          spaces: input["field with spaces"],
+          numbers: input.fieldWithNumbers123,
+        }))
+        .build();
 
       const formData = new FormData();
       formData.append("field-with-dashes", "dash-value");
@@ -732,19 +715,18 @@ describe("FormData Validation Tests", () => {
         age: zfd.numeric().optional(),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: optionalSchema })
-          .handler(async ({ input }) => ({
-            hasName: !!input.name,
-            hasEmail: !!input.email,
-            hasAge: !!input.age,
-            fieldCount: Object.keys(input).length,
-          })),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: optionalSchema })
+        .handler(async ({ input }) => ({
+          hasName: !!input.name,
+          hasEmail: !!input.email,
+          hasAge: !!input.age,
+          fieldCount: Object.keys(input).length,
+        }))
+        .build();
 
       const emptyFormData = new FormData();
       const result = await action(initial(action), emptyFormData);
@@ -766,18 +748,17 @@ describe("FormData Validation Tests", () => {
       normalField: zfd.text(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: longFieldSchema })
-        .handler(async ({ input }) => ({
-          longFieldValue: input[longFieldName],
-          normalFieldValue: input.normalField,
-          longFieldLength: longFieldName.length,
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: longFieldSchema })
+      .handler(async ({ input }) => ({
+        longFieldValue: input[longFieldName],
+        normalFieldValue: input.normalField,
+        longFieldLength: longFieldName.length,
+      }))
+      .build();
 
     const formData = new FormData();
     formData.append(longFieldName, "long-field-value");
@@ -799,18 +780,17 @@ describe("FormData Validation Tests", () => {
       longField: zfd.text(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: longValueSchema })
-        .handler(async ({ input }) => ({
-          shortFieldValue: input.shortField,
-          longFieldLength: input.longField.length,
-          longFieldPreview: input.longField.substring(0, 50) + "...",
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: longValueSchema })
+      .handler(async ({ input }) => ({
+        shortFieldValue: input.shortField,
+        longFieldLength: input.longField.length,
+        longFieldPreview: input.longField.substring(0, 50) + "...",
+      }))
+      .build();
 
     const longValue = "x".repeat(100000); // 100KB string
     const formData = new FormData();
@@ -836,27 +816,26 @@ describe("FormData Validation Tests", () => {
       mixed: zfd.text(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: unicodeSchema })
-        .handler(async ({ input }) => ({
-          emoji: input.emoji,
-          chinese: input.chinese,
-          arabic: input.arabic,
-          mathematical: input.mathematical,
-          mixed: input.mixed,
-          allLengths: {
-            emoji: input.emoji.length,
-            chinese: input.chinese.length,
-            arabic: input.arabic.length,
-            mathematical: input.mathematical.length,
-            mixed: input.mixed.length,
-          },
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: unicodeSchema })
+      .handler(async ({ input }) => ({
+        emoji: input.emoji,
+        chinese: input.chinese,
+        arabic: input.arabic,
+        mathematical: input.mathematical,
+        mixed: input.mixed,
+        allLengths: {
+          emoji: input.emoji.length,
+          chinese: input.chinese.length,
+          arabic: input.arabic.length,
+          mathematical: input.mathematical.length,
+          mixed: input.mixed.length,
+        },
+      }))
+      .build();
 
     const formData = new FormData();
     formData.append("emoji", "🚀🎉💻🌟🔥");
@@ -892,18 +871,17 @@ describe("FormData Performance Tests", () => {
       data: zfd.repeatableOfType(zfd.text()),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: largeFormSchema })
-        .handler(async ({ input }) => ({
-          title: input.title,
-          fieldCount: input.data.length,
-          totalLength: input.data.join("").length,
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: largeFormSchema })
+      .handler(async ({ input }) => ({
+        title: input.title,
+        fieldCount: input.data.length,
+        totalLength: input.data.join("").length,
+      }))
+      .build();
 
     // Create FormData with many fields
     const formData = new FormData();
@@ -938,19 +916,18 @@ describe("FormData Performance Tests", () => {
       file: zfd.file(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: largeFileSchema })
-        .handler(async ({ input }) => ({
-          name: input.name,
-          fileName: input.file.name,
-          fileSize: input.file.size,
-          fileType: input.file.type,
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: largeFileSchema })
+      .handler(async ({ input }) => ({
+        name: input.name,
+        fileName: input.file.name,
+        fileSize: input.file.size,
+        fileType: input.file.type,
+      }))
+      .build();
 
     // Create a large file (5MB)
     const largeContent = new Uint8Array(5 * 1024 * 1024);
@@ -987,18 +964,17 @@ describe("FormData Performance Tests", () => {
       value: zfd.numeric(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: concurrentSchema })
-        .handler(async ({ input }) => ({
-          id: input.id,
-          value: input.value,
-          processed: true,
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: concurrentSchema })
+      .handler(async ({ input }) => ({
+        id: input.id,
+        value: input.value,
+        processed: true,
+      }))
+      .build();
 
     // Create multiple FormData instances
     const formDataInstances = Array.from({ length: 100 }, (_, i) => {
@@ -1051,22 +1027,21 @@ describe("FormData Performance Tests", () => {
       salary: zfd.numeric(z.number().positive()),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: complexSchema })
-        .handler(async ({ input }) => ({
-          userName: input.userName,
-          hasAvatar: !!input.avatar,
-          documentCount: input.documents.length,
-          skillCount: input.skills.length,
-          interestCount: input.interests.length,
-          experience: input.experience,
-          salary: input.salary,
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: complexSchema })
+      .handler(async ({ input }) => ({
+        userName: input.userName,
+        hasAvatar: !!input.avatar,
+        documentCount: input.documents.length,
+        skillCount: input.skills.length,
+        interestCount: input.interests.length,
+        experience: input.experience,
+        salary: input.salary,
+      }))
+      .build();
 
     const formData = new FormData();
 
@@ -1149,19 +1124,18 @@ describe("FormData Performance Tests", () => {
         // Don't include confirmation fields in final result
       }));
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-          validationErrorFormat: "nested",
-        })
-        .schemas({ inputSchema: customTransformSchema })
-        .handler(async ({ input }) => ({
-          email: input.email,
-          hasPassword: !!input.password,
-          emailIsLowercase: input.email === input.email.toLowerCase(),
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+        validationErrorFormat: "nested",
+      })
+      .schemas({ inputSchema: customTransformSchema })
+      .handler(async ({ input }) => ({
+        email: input.email,
+        hasPassword: !!input.password,
+        emailIsLowercase: input.email === input.email.toLowerCase(),
+      }))
+      .build();
 
     // Test successful case - emails must match exactly for validation to pass
     const validFormData = new FormData();
@@ -1203,19 +1177,18 @@ describe("FormData Performance Tests", () => {
       "settings-notifications": zfd.checkbox(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: structuredSchema })
-        .handler(async ({ input }) => ({
-          userName: input.user_name,
-          userEmail: input.user_email,
-          settingsTheme: input["settings-theme"],
-          settingsNotifications: input["settings-notifications"],
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: structuredSchema })
+      .handler(async ({ input }) => ({
+        userName: input.user_name,
+        userEmail: input.user_email,
+        settingsTheme: input["settings-theme"],
+        settingsNotifications: input["settings-notifications"],
+      }))
+      .build();
 
     const formData = new FormData();
     formData.append("user_name", "John Doe");
@@ -1242,15 +1215,14 @@ describe("FormData Serialization and Meta-field Handling", () => {
       email: zfd.text(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-          validationErrorFormat: "nested",
-        })
-        .schemas({ inputSchema: metaFieldSchema })
-        .handler(async ({ input }) => input),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+        validationErrorFormat: "nested",
+      })
+      .schemas({ inputSchema: metaFieldSchema })
+      .handler(async ({ input }) => input)
+      .build();
 
     const formData = new FormData();
     formData.append("name", "John Doe");
@@ -1280,22 +1252,21 @@ describe("FormData Serialization and Meta-field Handling", () => {
       avatar: zfd.file().optional(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-          validationErrorFormat: "nested",
-        })
-        .schemas({ inputSchema: fileSerializationSchema })
-        .handler(async ({ input }) => ({
-          name: input.name,
-          hasDocument: input.document instanceof File,
-          documentName: input.document.name,
-          documentSize: input.document.size,
-          hasAvatar: input.avatar instanceof File,
-          avatarName: input.avatar?.name,
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+        validationErrorFormat: "nested",
+      })
+      .schemas({ inputSchema: fileSerializationSchema })
+      .handler(async ({ input }) => ({
+        name: input.name,
+        hasDocument: input.document instanceof File,
+        documentName: input.document.name,
+        documentSize: input.document.size,
+        hasAvatar: input.avatar instanceof File,
+        avatarName: input.avatar?.name,
+      }))
+      .build();
 
     const formData = new FormData();
     formData.append("name", "File Test User");
@@ -1333,21 +1304,20 @@ describe("FormData Serialization and Meta-field Handling", () => {
       isPublic: zfd.checkbox(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: mixedContentSchema })
-        .handler(async ({ input }) => ({
-          title: input.title,
-          tagCount: input.tags.length,
-          tags: input.tags,
-          fileCount: input.files.length,
-          fileNames: input.files.map((f) => f.name),
-          isPublic: input.isPublic,
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: mixedContentSchema })
+      .handler(async ({ input }) => ({
+        title: input.title,
+        tagCount: input.tags.length,
+        tags: input.tags,
+        fileCount: input.files.length,
+        fileNames: input.files.map((f) => f.name),
+        isPublic: input.isPublic,
+      }))
+      .build();
 
     const formData = new FormData();
     formData.append("title", "Mixed Content Test");
@@ -1409,15 +1379,14 @@ describe("FormData Error Handling Edge Cases", () => {
       ),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-          validationErrorFormat: "nested",
-        })
-        .schemas({ inputSchema: detailedErrorSchema })
-        .handler(async ({ input }) => input),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+        validationErrorFormat: "nested",
+      })
+      .schemas({ inputSchema: detailedErrorSchema })
+      .handler(async ({ input }) => input)
+      .build();
 
     // Create FormData with multiple validation errors
     const formData = new FormData();
@@ -1471,27 +1440,26 @@ describe("FormData Error Handling Edge Cases", () => {
       data: zfd.text().optional(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: robustSchema })
-        .errors({
-          parsingError: (message: string) => ({
-            type: "PARSING_ERROR" as const,
-            message,
-          }),
-        })
-        .handler(async ({ input, errors, metadata }) => {
-          // Check for potential parsing issues
-          if (!(metadata.rawInput instanceof FormData)) {
-            return errors.parsingError("Expected FormData input");
-          }
-
-          return { data: input.data || "default" };
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: robustSchema })
+      .errors({
+        parsingError: (message: string) => ({
+          type: "PARSING_ERROR" as const,
+          message,
         }),
-    );
+      })
+      .handler(async ({ input, errors, metadata }) => {
+        // Check for potential parsing issues
+        if (!(metadata.rawInput instanceof FormData)) {
+          return errors.parsingError("Expected FormData input");
+        }
+
+        return { data: input.data || "default" };
+      })
+      .build();
 
     // Test with valid FormData
     const validFormData = new FormData();
@@ -1512,19 +1480,18 @@ describe("FormData Error Handling Edge Cases", () => {
       fileField: zfd.file().optional(),
     });
 
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-          validationErrorFormat: "flattened",
-        })
-        .schemas({ inputSchema: resilientSchema })
-        .handler(async ({ input }) => ({
-          normalField: input.normalField,
-          hasNumericField: input.numericField !== undefined,
-          hasFileField: !!input.fileField,
-        })),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+        validationErrorFormat: "flattened",
+      })
+      .schemas({ inputSchema: resilientSchema })
+      .handler(async ({ input }) => ({
+        normalField: input.normalField,
+        hasNumericField: input.numericField !== undefined,
+        hasFileField: !!input.fileField,
+      }))
+      .build();
 
     const formData = new FormData();
     formData.append("normalField", "normal-value");

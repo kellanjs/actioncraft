@@ -33,7 +33,7 @@ import type {
   InferRawInput,
 } from "../../types/schemas.js";
 import type { CallbackMetadata } from "../../types/shared.js";
-import type { CraftBuilder } from "../craft-builder.js";
+import type { ActioncraftBuilder } from "../builder.js";
 import { INTERNAL } from "../internal.js";
 import { safeExecuteCallback } from "./callbacks.js";
 import {
@@ -69,7 +69,7 @@ export class Executor<
   private _actionId?: string;
 
   constructor(
-    builder: CraftBuilder<TConfig, TSchemas, TErrors, TCallbacks, TData>,
+    builder: ActioncraftBuilder<TConfig, TSchemas, TErrors, TCallbacks, TData>,
   ) {
     this._config = builder[INTERNAL]().config;
     this._schemas = builder[INTERNAL]().schemas;
@@ -81,7 +81,7 @@ export class Executor<
   /**
    * Builds and returns the final executable server action.
    */
-  craft(): CraftedAction<TConfig, TSchemas, TErrors, TData> {
+  build(): CraftedAction<TConfig, TSchemas, TErrors, TData> {
     if (!this._handler) {
       throw new Error("A handler implementation is required");
     }

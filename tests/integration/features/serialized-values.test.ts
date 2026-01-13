@@ -1,6 +1,6 @@
-import { craft, initial } from "../../../src/index";
+import { actioncraft, initial } from "../../../src/index";
 import { isOk } from "../../../src/types/result";
-import { describe, expect, it } from "../../setup";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { zfd } from "zod-form-data";
 
@@ -19,16 +19,15 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("Scenario 1: With inputSchema provided", () => {
     it("should return schema input type for better IntelliSense", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => {
-            return `Hello ${input.name}!`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => {
+          return `Hello ${input.name}!`;
+        })
+        .build();
 
       const userInput = {
         name: "Jane",
@@ -51,16 +50,15 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should handle primitive types from schema", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: z.string() })
-          .handler(async ({ input }) => {
-            return input.toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: z.string() })
+        .handler(async ({ input }) => {
+          return input.toUpperCase();
+        })
+        .build();
 
       const result = await action(initial(action), "hello");
 
@@ -74,16 +72,15 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should handle FormData with schema", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userFormDataSchema })
-          .handler(async ({ input }) => {
-            return `Hello ${input.name}!`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userFormDataSchema })
+        .handler(async ({ input }) => {
+          return `Hello ${input.name}!`;
+        })
+        .build();
 
       const formData = new FormData();
       formData.append("name", "John");
@@ -107,17 +104,16 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("Scenario 2: Without inputSchema", () => {
     it("should handle FormData without schema", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async ({ metadata: _metadata }) => {
-            // Should handle FormData as raw input
-            expect(_metadata.rawInput).toBeInstanceOf(FormData);
-            return "form processed";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async ({ metadata: _metadata }) => {
+          // Should handle FormData as raw input
+          expect(_metadata.rawInput).toBeInstanceOf(FormData);
+          return "form processed";
+        })
+        .build();
 
       const formData = new FormData();
       formData.append("name", "Bob");
@@ -140,15 +136,14 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should handle empty FormData", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async () => {
-            return "empty form processed";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async () => {
+          return "empty form processed";
+        })
+        .build();
 
       const formData = new FormData();
 
@@ -165,15 +160,14 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("FormData File Handling", () => {
     it("should handle File objects by storing filename", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async () => {
-            return "file processed";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async () => {
+          return "file processed";
+        })
+        .build();
 
       const formData = new FormData();
       const file = new File(["content"], "test.txt", { type: "text/plain" });
@@ -193,15 +187,14 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should handle File objects without name", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async () => {
-            return "file processed";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async () => {
+          return "file processed";
+        })
+        .build();
 
       const formData = new FormData();
       // Create a File without a name (empty string)
@@ -220,15 +213,14 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should handle multiple files with same key", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async () => {
-            return "files processed";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async () => {
+          return "files processed";
+        })
+        .build();
 
       const formData = new FormData();
       const file1 = new File(["content1"], "file1.txt", { type: "text/plain" });
@@ -250,15 +242,14 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("React Internal Keys Filtering", () => {
     it("should filter out React's internal $ACTION keys", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async () => {
-            return "processed";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async () => {
+          return "processed";
+        })
+        .build();
 
       const formData = new FormData();
       formData.append("name", "John");
@@ -287,16 +278,15 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("Different Result Formats", () => {
     it("should not include values in functional result format", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => {
-            return `Hello ${input.name}!`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => {
+          return `Hello ${input.name}!`;
+        })
+        .build();
 
       const userInput = {
         name: "Jane",
@@ -315,16 +305,15 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should not include values in api result format", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            resultFormat: "api",
-          })
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => {
-            return `Hello ${input.name}!`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          resultFormat: "api",
+        })
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => {
+          return `Hello ${input.name}!`;
+        })
+        .build();
 
       const userInput = {
         name: "Jane",
@@ -345,22 +334,21 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("Bind Args Scenarios", () => {
     it("should handle actions with bind args", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({
-            bindSchemas: [z.string(), z.number()] as const,
-            inputSchema: userSchema,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [prefix, multiplier] = bindArgs;
-            return `${prefix as string}: ${input.name} (${
-              input.age * (multiplier as number)
-            })`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({
+          bindSchemas: [z.string(), z.number()] as const,
+          inputSchema: userSchema,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [prefix, multiplier] = bindArgs;
+          return `${prefix as string}: ${input.name} (${
+            input.age * (multiplier as number)
+          })`;
+        })
+        .build();
 
       const userInput = {
         name: "Jane",
@@ -395,16 +383,15 @@ describe("InferSerializedValues Scenarios", () => {
         }),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: nestedSchema })
-          .handler(async ({ input }) => {
-            return `User: ${input.user.name}`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: nestedSchema })
+        .handler(async ({ input }) => {
+          return `User: ${input.user.name}`;
+        })
+        .build();
 
       const nestedInput = {
         user: {
@@ -440,16 +427,15 @@ describe("InferSerializedValues Scenarios", () => {
         config: z.record(z.string(), z.unknown()),
       });
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: schemaWithUnknown })
-          .handler(async ({ input }) => {
-            return `User: ${input.name}`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: schemaWithUnknown })
+        .handler(async ({ input }) => {
+          return `User: ${input.name}`;
+        })
+        .build();
 
       const input = {
         name: "John",
@@ -471,15 +457,14 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("Edge Cases with Complex FormData", () => {
     it("should handle FormData with duplicate keys", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async () => {
-            return "processed";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async () => {
+          return "processed";
+        })
+        .build();
 
       const formData = new FormData();
       formData.append("tags", "javascript");
@@ -500,15 +485,14 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should handle mixed File and string values with same key", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async () => {
-            return "processed";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async () => {
+          return "processed";
+        })
+        .build();
 
       const formData = new FormData();
       const file = new File(["content"], "test.txt", { type: "text/plain" });
@@ -530,16 +514,15 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("Error States with Serialization", () => {
     it("should provide raw values on validation errors", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userFormDataSchema })
-          .handler(async ({ input }) => {
-            return `Hello ${input.name}!`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userFormDataSchema })
+        .handler(async ({ input }) => {
+          return `Hello ${input.name}!`;
+        })
+        .build();
 
       const invalidFormData = new FormData();
       invalidFormData.append("name", "John");
@@ -560,25 +543,24 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should handle action handler errors with values", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userSchema })
-          .errors({
-            userNotFound: () => ({
-              type: "USER_NOT_FOUND" as const,
-              message: "User not found",
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            if (input.name === "nonexistent") {
-              return errors.userNotFound();
-            }
-            return `Hello ${input.name}!`;
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userSchema })
+        .errors({
+          userNotFound: () => ({
+            type: "USER_NOT_FOUND" as const,
+            message: "User not found",
           }),
-      );
+        })
+        .handler(async ({ input, errors }) => {
+          if (input.name === "nonexistent") {
+            return errors.userNotFound();
+          }
+          return `Hello ${input.name}!`;
+        })
+        .build();
 
       const userInput = {
         name: "nonexistent",
@@ -599,16 +581,15 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("Edge cases and error handling", () => {
     it("should handle validation errors while still providing values", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userFormDataSchema })
-          .handler(async ({ input }) => {
-            return `Hello ${input.name}!`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userFormDataSchema })
+        .handler(async ({ input }) => {
+          return `Hello ${input.name}!`;
+        })
+        .build();
 
       const invalidFormData = new FormData();
       invalidFormData.append("name", "John");
@@ -627,15 +608,14 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should handle non-FormData input", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async ({ metadata: _metadata }) => {
-            return "processed";
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async ({ metadata: _metadata }) => {
+          return "processed";
+        })
+        .build();
 
       const result = await action(initial(action), "some string");
 
@@ -651,33 +631,30 @@ describe("InferSerializedValues Scenarios", () => {
   describe("Type inference verification", () => {
     it("should provide correct types for all scenarios", async () => {
       // Scenario 1: With inputSchema
-      const action1 = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userFormDataSchema })
-          .handler(async () => "test"),
-      );
+      const action1 = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userFormDataSchema })
+        .handler(async () => "test")
+        .build();
 
       // Scenario 2: With different inputSchema
-      const action2 = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userSchema })
-          .handler(async () => "test"),
-      );
+      const action2 = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userSchema })
+        .handler(async () => "test")
+        .build();
 
       // Scenario 3: Without inputSchema
-      const action3 = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .handler(async () => "test"),
-      );
+      const action3 = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .handler(async () => "test")
+        .build();
 
       // These should all have different types for the values field
       const formData1 = new FormData();
@@ -720,16 +697,15 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("IntelliSense demonstration", () => {
     it("should provide IntelliSense for field names", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => {
-            return `Hello ${input.name}!`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => {
+          return `Hello ${input.name}!`;
+        })
+        .build();
 
       const userInput = {
         name: "Jane",
@@ -753,16 +729,15 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should provide IntelliSense for FormData schemas", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: userFormDataSchema })
-          .handler(async ({ input }) => {
-            return `Hello ${input.name}!`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: userFormDataSchema })
+        .handler(async ({ input }) => {
+          return `Hello ${input.name}!`;
+        })
+        .build();
 
       const formData = new FormData();
       formData.append("name", "John");
@@ -787,11 +762,10 @@ describe("InferSerializedValues Scenarios", () => {
 
   describe("Additional edge cases", () => {
     it("should handle Blob objects without filename inside FormData", async () => {
-      const action = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .handler(async () => "blob processed"),
-      );
+      const action = actioncraft()
+        .config({ useActionState: true })
+        .handler(async () => "blob processed")
+        .build();
 
       const formData = new FormData();
       const blob = new Blob(["hello"], { type: "text/plain" });
@@ -808,9 +782,10 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should propagate undefined values field when action takes no input", async () => {
-      const action = craft((action) =>
-        action.config({ useActionState: true }).handler(async () => "no input"),
-      );
+      const action = actioncraft()
+        .config({ useActionState: true })
+        .handler(async () => "no input")
+        .build();
 
       const result = await action(
         initial(action),
@@ -825,11 +800,10 @@ describe("InferSerializedValues Scenarios", () => {
     });
 
     it("should pass through primitive non-string raw inputs", async () => {
-      const action = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .handler(async () => "processed"),
-      );
+      const action = actioncraft()
+        .config({ useActionState: true })
+        .handler(async () => "processed")
+        .build();
 
       const result = await action(initial(action), 123);
 

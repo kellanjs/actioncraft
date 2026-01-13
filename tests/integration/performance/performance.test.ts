@@ -1,21 +1,20 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import { stringSchema, numberSchema } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 describe("Performance & Stress Testing", () => {
   describe("Large payload handling", () => {
     it("should handle large string inputs efficiently", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return {
-              length: (input as string).length,
-              firstChar: (input as string)[0],
-              lastChar: (input as string)[(input as string).length - 1],
-            };
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return {
+            length: (input as string).length,
+            firstChar: (input as string)[0],
+            lastChar: (input as string)[(input as string).length - 1],
+          };
+        })
+        .build();
 
       // Create a large string (1MB)
       const largeString = "x".repeat(1024 * 1024);
@@ -54,17 +53,16 @@ describe("Performance & Stress Testing", () => {
         },
       } as const;
 
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: largeObjectSchema })
-          .handler(async ({ input }) => {
-            const obj = input as Record<string, unknown>;
-            return {
-              keyCount: Object.keys(obj).length,
-              hasData: Object.keys(obj).length > 0,
-            };
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: largeObjectSchema })
+        .handler(async ({ input }) => {
+          const obj = input as Record<string, unknown>;
+          return {
+            keyCount: Object.keys(obj).length,
+            hasData: Object.keys(obj).length > 0,
+          };
+        })
+        .build();
 
       // Create a large object (10,000 properties)
       const largeObject: Record<string, number> = {};
@@ -105,18 +103,17 @@ describe("Performance & Stress Testing", () => {
         },
       } as const;
 
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: arraySchema })
-          .handler(async ({ input }) => {
-            const arr = input as number[];
-            return {
-              length: arr.length,
-              sum: arr.reduce((a, b) => a + b, 0),
-              average: arr.reduce((a, b) => a + b, 0) / arr.length,
-            };
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: arraySchema })
+        .handler(async ({ input }) => {
+          const arr = input as number[];
+          return {
+            length: arr.length,
+            sum: arr.reduce((a, b) => a + b, 0),
+            average: arr.reduce((a, b) => a + b, 0) / arr.length,
+          };
+        })
+        .build();
 
       // Create a large array (100,000 elements)
       const largeArray = Array.from({ length: 100000 }, (_, i) => i + 1);
@@ -139,15 +136,14 @@ describe("Performance & Stress Testing", () => {
 
   describe("Concurrent execution", () => {
     it("should handle multiple concurrent actions", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => {
-            // Simulate some async work
-            await new Promise((resolve) => setTimeout(resolve, 10));
-            return (input as number) * 2;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => {
+          // Simulate some async work
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return (input as number) * 2;
+        })
+        .build();
 
       const startTime = Date.now();
 
@@ -173,16 +169,15 @@ describe("Performance & Stress Testing", () => {
     });
 
     it("should handle concurrent actions with different inputs", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            // Simulate variable processing time based on input length
-            const delay = Math.min((input as string).length, 50);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          // Simulate variable processing time based on input length
+          const delay = Math.min((input as string).length, 50);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const inputs = [
         "short",
@@ -210,26 +205,25 @@ describe("Performance & Stress Testing", () => {
     });
 
     it("should handle mixed success/error concurrent scenarios", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .errors({
-            tooLarge: (value: number) =>
-              ({
-                type: "TOO_LARGE",
-                value,
-                limit: 100,
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            await new Promise((resolve) => setTimeout(resolve, 5));
+      const action = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .errors({
+          tooLarge: (value: number) =>
+            ({
+              type: "TOO_LARGE",
+              value,
+              limit: 100,
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          await new Promise((resolve) => setTimeout(resolve, 5));
 
-            if ((input as number) > 100) {
-              return errors.tooLarge(input as number);
-            }
-            return (input as number) * 2;
-          }),
-      );
+          if ((input as number) > 100) {
+            return errors.tooLarge(input as number);
+          }
+          return (input as number) * 2;
+        })
+        .build();
 
       // Mix of valid and invalid inputs
       const inputs = [1, 50, 150, 25, 200, 75, 300, 10];
@@ -255,18 +249,17 @@ describe("Performance & Stress Testing", () => {
     });
 
     it("should support concurrent actions with useActionState", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input, metadata }) => {
-            // Just return doubled value, ensure prevState is always defined
-            expect(metadata.prevState).toBeDefined();
-            return (input as number) * 2;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input, metadata }) => {
+          // Just return doubled value, ensure prevState is always defined
+          expect(metadata.prevState).toBeDefined();
+          return (input as number) * 2;
+        })
+        .build();
 
       const previousState = {
         success: true as const,
@@ -293,19 +286,18 @@ describe("Performance & Stress Testing", () => {
 
   describe("Memory usage patterns", () => {
     it("should handle repeated action calls without memory accumulation", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            // Create and process some data
-            const processed = (input as string).repeat(100);
-            return {
-              original: input,
-              length: processed.length,
-              checksum: processed.length.toString(16),
-            };
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          // Create and process some data
+          const processed = (input as string).repeat(100);
+          return {
+            original: input,
+            length: processed.length,
+            checksum: processed.length.toString(16),
+          };
+        })
+        .build();
 
       // Run many iterations to test memory usage
       const iterations = 1000;
@@ -323,28 +315,27 @@ describe("Performance & Stress Testing", () => {
     it("should handle callbacks without memory leaks", async () => {
       let callbackExecutions = 0;
 
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => {
-            return (input as number) * 2;
-          })
-          .callbacks({
-            onSuccess: ({ data }) => {
-              callbackExecutions++;
-              // Simulate callback processing
-              const temp = Array.from({ length: 1000 }, (_, i) => i + data);
-              // Use temp to prevent optimization, but don't return anything
-              void temp.length;
-            },
-            onSettled: () => {
-              // Another callback that does some work
-              const temp = Array.from({ length: 100 }, (_, i) => i.toString());
-              // Use temp to prevent optimization, but don't return anything
-              void temp.join(",");
-            },
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => {
+          return (input as number) * 2;
+        })
+        .callbacks({
+          onSuccess: ({ data }) => {
+            callbackExecutions++;
+            // Simulate callback processing
+            const temp = Array.from({ length: 1000 }, (_, i) => i + data);
+            // Use temp to prevent optimization, but don't return anything
+            void temp.length;
+          },
+          onSettled: () => {
+            // Another callback that does some work
+            const temp = Array.from({ length: 100 }, (_, i) => i.toString());
+            // Use temp to prevent optimization, but don't return anything
+            void temp.join(",");
+          },
+        })
+        .build();
 
       // Run multiple iterations with callbacks
       const iterations = 500;
@@ -381,17 +372,16 @@ describe("Performance & Stress Testing", () => {
         },
       } as const;
 
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: formDataSchema })
-          .handler(async ({ input }) => {
-            const data = input as Record<string, string>;
-            return {
-              fieldCount: Object.keys(data).length,
-              totalLength: Object.values(data).join("").length,
-            };
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: formDataSchema })
+        .handler(async ({ input }) => {
+          const data = input as Record<string, string>;
+          return {
+            fieldCount: Object.keys(data).length,
+            totalLength: Object.values(data).join("").length,
+          };
+        })
+        .build();
 
       // Create FormData with many fields
       const formData = new FormData();

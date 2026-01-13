@@ -1,24 +1,23 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import {
   stringSchema,
   numberSchema,
   alwaysFailSchema,
 } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 describe("Output Validation Errors", () => {
   it("should return an UNHANDLED_ERROR for invalid output (client-facing)", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          outputSchema: numberSchema,
-        })
-        .handler(async ({ input }) => {
-          // Return string when number is expected
-          return input; // This will fail output validation
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        outputSchema: numberSchema,
+      })
+      .handler(async ({ input }) => {
+        // Return string when number is expected
+        return input; // This will fail output validation
+      })
+      .build();
 
     const result = await action("not-a-number");
     expect(result.success).toBe(false);
@@ -56,16 +55,15 @@ describe("Output Validation Errors", () => {
       },
     } as const;
 
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          outputSchema: complexOutputSchema,
-        })
-        .handler(async () => {
-          return { id: 123, name: "test" }; // id should be string, not number
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        outputSchema: complexOutputSchema,
+      })
+      .handler(async () => {
+        return { id: 123, name: "test" }; // id should be string, not number
+      })
+      .build();
 
     const result = await action("input");
     expect(result.success).toBe(false);
@@ -75,16 +73,15 @@ describe("Output Validation Errors", () => {
   });
 
   it("should handle schema that always fails (client-facing)", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          outputSchema: alwaysFailSchema,
-        })
-        .handler(async ({ input }) => {
-          return input; // This will always fail output validation
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        outputSchema: alwaysFailSchema,
+      })
+      .handler(async ({ input }) => {
+        return input; // This will always fail output validation
+      })
+      .build();
 
     const result = await action("test");
     expect(result.success).toBe(false);
@@ -129,19 +126,18 @@ describe("Output Validation Errors", () => {
       },
     } as const;
 
-    const action = craft((action) =>
-      action
-        .config({
-          validationErrorFormat: "flattened",
-        })
-        .schemas({
-          inputSchema: stringSchema,
-          outputSchema: multiFieldOutputSchema,
-        })
-        .handler(async () => {
-          return { name: 123, age: "not-a-number" }; // Both fields invalid
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        validationErrorFormat: "flattened",
+      })
+      .schemas({
+        inputSchema: stringSchema,
+        outputSchema: multiFieldOutputSchema,
+      })
+      .handler(async () => {
+        return { name: 123, age: "not-a-number" }; // Both fields invalid
+      })
+      .build();
 
     const result = await action("input");
     expect(result.success).toBe(false);
@@ -151,23 +147,22 @@ describe("Output Validation Errors", () => {
   });
 
   it("should handle output validation errors with custom error handler (client-facing)", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          handleThrownError: (error: unknown) =>
-            ({
-              type: "CUSTOM_OUTPUT_ERROR",
-              originalError: error,
-            }) as const,
-        })
-        .schemas({
-          inputSchema: stringSchema,
-          outputSchema: numberSchema,
-        })
-        .handler(async ({ input }) => {
-          return input; // Will fail output validation
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        handleThrownError: (error: unknown) =>
+          ({
+            type: "CUSTOM_OUTPUT_ERROR",
+            originalError: error,
+          }) as const,
+      })
+      .schemas({
+        inputSchema: stringSchema,
+        outputSchema: numberSchema,
+      })
+      .handler(async ({ input }) => {
+        return input; // Will fail output validation
+      })
+      .build();
 
     const result = await action("not-a-number");
     expect(result.success).toBe(false);
@@ -181,21 +176,20 @@ describe("Output Validation Errors", () => {
   it("should pass detailed OUTPUT_VALIDATION_ERROR to callbacks", async () => {
     let capturedError: any = null;
 
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          outputSchema: numberSchema,
-        })
-        .handler(async ({ input }) => {
-          return input; // Will fail output validation
-        })
-        .callbacks({
-          onError: ({ error }) => {
-            capturedError = error;
-          },
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        outputSchema: numberSchema,
+      })
+      .handler(async ({ input }) => {
+        return input; // Will fail output validation
+      })
+      .callbacks({
+        onError: ({ error }) => {
+          capturedError = error;
+        },
+      })
+      .build();
 
     const result = await action("not-a-number");
 
@@ -216,21 +210,20 @@ describe("Output Validation Errors", () => {
   it("should pass IMPLICIT_RETURN_ERROR to callbacks but UNHANDLED_ERROR to client", async () => {
     let capturedError: any = null;
 
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: stringSchema })
-        .handler(async ({ input }) => {
-          // Implicit return (undefined) - new UX improvement
+    const action = actioncraft()
+      .schemas({ inputSchema: stringSchema })
+      .handler(async ({ input }) => {
+        // Implicit return (undefined) - new UX improvement
 
-          const result = input.toUpperCase();
-          // No return statement - this should trigger IMPLICIT_RETURN_ERROR
-        })
-        .callbacks({
-          onError: ({ error }) => {
-            capturedError = error;
-          },
-        }),
-    );
+        const result = input.toUpperCase();
+        // No return statement - this should trigger IMPLICIT_RETURN_ERROR
+      })
+      .callbacks({
+        onError: ({ error }) => {
+          capturedError = error;
+        },
+      })
+      .build();
 
     const result = await action("test");
 

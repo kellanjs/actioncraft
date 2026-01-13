@@ -1,16 +1,15 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import { strictSchema, nestedSchema } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 describe("Validation Error Formatting", () => {
   it("should format errors as flattened by default", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: strictSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: strictSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     const invalidData = {
       requiredField: "", // Invalid: empty string
@@ -28,16 +27,15 @@ describe("Validation Error Formatting", () => {
   });
 
   it("should format errors as flattened when configured", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          validationErrorFormat: "flattened",
-        })
-        .schemas({ inputSchema: strictSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        validationErrorFormat: "flattened",
+      })
+      .schemas({ inputSchema: strictSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     const invalidData = {
       requiredField: "", // Invalid: empty string
@@ -55,13 +53,12 @@ describe("Validation Error Formatting", () => {
   });
 
   it("should handle complex nested validation errors", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: nestedSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: nestedSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     // Create deeply invalid nested data
     const deeplyInvalidData = {
@@ -114,13 +111,12 @@ describe("Validation Error Formatting", () => {
       },
     } as const;
 
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: singleFieldSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: singleFieldSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     const result = await action("hi");
     expect(result.success).toBe(false);
@@ -154,16 +150,15 @@ describe("Validation Error Formatting", () => {
       },
     } as const;
 
-    const action = craft((action) =>
-      action
-        .config({
-          validationErrorFormat: "flattened",
-        })
-        .schemas({ inputSchema: singleFieldSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        validationErrorFormat: "flattened",
+      })
+      .schemas({ inputSchema: singleFieldSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     const result = await action("hi");
     expect(result.success).toBe(false);
@@ -216,13 +211,12 @@ describe("Validation Error Formatting", () => {
     } as const;
 
     // Test flattened format (default)
-    const defaultAction = craft((action) =>
-      action
-        .schemas({ inputSchema: multiIssueSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const defaultAction = actioncraft()
+      .schemas({ inputSchema: multiIssueSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     const defaultResult = await defaultAction({
       name: 123,
@@ -236,16 +230,15 @@ describe("Validation Error Formatting", () => {
     }
 
     // Test nested format when explicitly configured
-    const nestedAction = craft((action) =>
-      action
-        .config({
-          validationErrorFormat: "nested",
-        })
-        .schemas({ inputSchema: multiIssueSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const nestedAction = actioncraft()
+      .config({
+        validationErrorFormat: "nested",
+      })
+      .schemas({ inputSchema: multiIssueSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     const nestedResult = await nestedAction({
       name: 123,
@@ -260,16 +253,15 @@ describe("Validation Error Formatting", () => {
     }
 
     // Test flattened format
-    const flattenedAction = craft((action) =>
-      action
-        .config({
-          validationErrorFormat: "flattened",
-        })
-        .schemas({ inputSchema: multiIssueSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const flattenedAction = actioncraft()
+      .config({
+        validationErrorFormat: "flattened",
+      })
+      .schemas({ inputSchema: multiIssueSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     const flattenedResult = await flattenedAction({
       name: 123,

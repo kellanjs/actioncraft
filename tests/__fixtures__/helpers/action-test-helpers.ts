@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 
 /**
- * Shared test utilities for action/craft function testing
+ * Shared test utilities for actioncraft function testing
  * These helpers are used across multiple test files
  */
 

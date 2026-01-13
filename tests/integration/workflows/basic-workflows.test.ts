@@ -1,4 +1,4 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import { isOk } from "../../../src/types/result";
 import {
   stringSchema,
@@ -6,18 +6,17 @@ import {
   nestedErrorSchema,
   simpleUserSchema,
 } from "../../__fixtures__/schemas";
-import { describe, expect, it, vi } from "../../setup";
+import { describe, it, expect, vi } from "vitest";
 
 describe("Basic Workflows", () => {
   describe("Happy path scenarios", () => {
     it("should execute a simple action successfully", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const result = await action("hello world");
 
@@ -29,11 +28,11 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle actions without input schema", async () => {
-      const action = craft((action) =>
-        action.handler(async () => {
+      const action = actioncraft()
+        .handler(async () => {
           return { message: "success", timestamp: Date.now() };
-        }),
-      );
+        })
+        .build();
 
       const result = await action();
 
@@ -45,16 +44,15 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle output validation", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            outputSchema: stringSchema,
-          })
-          .handler(async ({ input }) => {
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          outputSchema: stringSchema,
+        })
+        .handler(async ({ input }) => {
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const result = await action("test");
 
@@ -68,13 +66,12 @@ describe("Basic Workflows", () => {
 
   describe("Validation error scenarios", () => {
     it("should return validation error for invalid input", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return input;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return input;
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid input
       const result = await action(123); // Should fail string validation
@@ -89,13 +86,12 @@ describe("Basic Workflows", () => {
     });
 
     it("should format validation errors as flattened by default", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: nestedErrorSchema })
-          .handler(async ({ input }) => {
-            return input;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: nestedErrorSchema })
+        .handler(async ({ input }) => {
+          return input;
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid input
       const result = await action({ invalid: "data" });
@@ -108,16 +104,15 @@ describe("Basic Workflows", () => {
     });
 
     it("should format validation errors as flattened when configured", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "flattened",
-          })
-          .schemas({ inputSchema: nestedErrorSchema })
-          .handler(async ({ input }) => {
-            return input;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          validationErrorFormat: "flattened",
+        })
+        .schemas({ inputSchema: nestedErrorSchema })
+        .handler(async ({ input }) => {
+          return input;
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid input
       const result = await action({ invalid: "data" });
@@ -132,23 +127,22 @@ describe("Basic Workflows", () => {
 
   describe("Custom error scenarios", () => {
     it("should handle custom errors from handler", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            notFound: (id: string) =>
-              ({
-                type: "NOT_FOUND",
-                id,
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            if (input === "missing") {
-              return errors.notFound(input as string);
-            }
-            return input;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          notFound: (id: string) =>
+            ({
+              type: "NOT_FOUND",
+              id,
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          if (input === "missing") {
+            return errors.notFound(input as string);
+          }
+          return input;
+        })
+        .build();
 
       const result = await action("missing");
 
@@ -162,20 +156,18 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle thrown errors with custom handler", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            handleThrownError: (error: unknown) =>
-              ({
-                type: "CUSTOM_THROWN_ERROR",
-                message:
-                  error instanceof Error ? error.message : "Unknown error",
-              }) as const,
-          })
-          .handler(async () => {
-            throw new Error("Something went wrong!");
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          handleThrownError: (error: unknown) =>
+            ({
+              type: "CUSTOM_THROWN_ERROR",
+              message: error instanceof Error ? error.message : "Unknown error",
+            }) as const,
+        })
+        .handler(async () => {
+          throw new Error("Something went wrong!");
+        })
+        .build();
 
       const result = await action();
 
@@ -189,11 +181,11 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle thrown errors with default handler", async () => {
-      const action = craft((action) =>
-        action.handler(async () => {
+      const action = actioncraft()
+        .handler(async () => {
           throw new Error("Something went wrong!");
-        }),
-      );
+        })
+        .build();
 
       const result = await action();
 
@@ -209,16 +201,15 @@ describe("Basic Workflows", () => {
 
   describe("Result format configurations", () => {
     it("should return functional Result when configured", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const result = await action("test");
 
@@ -229,13 +220,12 @@ describe("Basic Workflows", () => {
     });
 
     it("should return api Result by default", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const result = await action("test");
 
@@ -251,16 +241,15 @@ describe("Basic Workflows", () => {
     it("should execute onSuccess callback", async () => {
       const onSuccessMock = vi.fn();
 
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return (input as string).toUpperCase();
-          })
-          .callbacks({
-            onSuccess: onSuccessMock,
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return (input as string).toUpperCase();
+        })
+        .callbacks({
+          onSuccess: onSuccessMock,
+        })
+        .build();
 
       await action("test");
 
@@ -276,16 +265,15 @@ describe("Basic Workflows", () => {
     it("should execute onError callback", async () => {
       const onErrorMock = vi.fn();
 
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return input;
-          })
-          .callbacks({
-            onError: onErrorMock,
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return input;
+        })
+        .callbacks({
+          onError: onErrorMock,
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid input
       await action(123); // Invalid input
@@ -303,16 +291,15 @@ describe("Basic Workflows", () => {
     it("should execute onSettled callback for both success and error", async () => {
       const onSettledMock = vi.fn();
 
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return input;
-          })
-          .callbacks({
-            onSettled: onSettledMock,
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return input;
+        })
+        .callbacks({
+          onSettled: onSettledMock,
+        })
+        .build();
 
       // Test success case
       await action("valid");
@@ -340,18 +327,17 @@ describe("Basic Workflows", () => {
 
   describe("Bind arguments", () => {
     it("should handle bind arguments with validation", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema, simpleUserSchema] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [multiplier, user] = bindArgs;
-            const result = (input as string).repeat(multiplier as number);
-            return `${(user as { name: string }).name}: ${result}`;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema, simpleUserSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [multiplier, user] = bindArgs;
+          const result = (input as string).repeat(multiplier as number);
+          return `${(user as { name: string }).name}: ${result}`;
+        })
+        .build();
 
       const result = await action(42, { name: "John", age: 30 }, "Hi");
 
@@ -365,18 +351,17 @@ describe("Basic Workflows", () => {
     it("should handle bind arguments without input schema", async () => {
       let capturedMetadata: unknown;
 
-      const action = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [numberSchema, simpleUserSchema] as const,
-            // No inputSchema
-          })
-          .handler(async ({ bindArgs, metadata }) => {
-            capturedMetadata = metadata;
-            const [multiplier, user] = bindArgs;
-            return `${(user as { name: string }).name} x${multiplier as number}`;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          bindSchemas: [numberSchema, simpleUserSchema] as const,
+          // No inputSchema
+        })
+        .handler(async ({ bindArgs, metadata }) => {
+          capturedMetadata = metadata;
+          const [multiplier, user] = bindArgs;
+          return `${(user as { name: string }).name} x${multiplier as number}`;
+        })
+        .build();
 
       const result = await action(3, { name: "Alice", age: 25 });
 
@@ -398,18 +383,17 @@ describe("Basic Workflows", () => {
       // Test edge case: what if someone passes extra parameters?
       let capturedMetadata: unknown;
 
-      const action = craft((action) =>
-        action
-          .schemas({
-            bindSchemas: [numberSchema] as const,
-            // No inputSchema
-          })
-          .handler(async ({ bindArgs, metadata }) => {
-            capturedMetadata = metadata;
-            const [multiplier] = bindArgs;
-            return `Result x${multiplier as number}`;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          bindSchemas: [numberSchema] as const,
+          // No inputSchema
+        })
+        .handler(async ({ bindArgs, metadata }) => {
+          capturedMetadata = metadata;
+          const [multiplier] = bindArgs;
+          return `Result x${multiplier as number}`;
+        })
+        .build();
 
       // Call with extra parameter that shouldn't be treated as input
       const result = await action(5, "extraParameter");
@@ -431,17 +415,16 @@ describe("Basic Workflows", () => {
 
   describe("Output validation scenarios", () => {
     it("should handle output validation errors (client-facing)", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            outputSchema: numberSchema, // Expect number output
-          })
-          .handler(async ({ input }) => {
-            // Return string instead of number - should fail output validation
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          outputSchema: numberSchema, // Expect number output
+        })
+        .handler(async ({ input }) => {
+          // Return string instead of number - should fail output validation
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const result = await action("test");
 
@@ -455,19 +438,18 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle output validation with nested format (client-facing)", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "nested",
-          })
-          .schemas({
-            outputSchema: simpleUserSchema, // Expect user object
-          })
-          .handler(async () => {
-            // Return invalid user object
-            return { invalidField: "value" };
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          validationErrorFormat: "nested",
+        })
+        .schemas({
+          outputSchema: simpleUserSchema, // Expect user object
+        })
+        .handler(async () => {
+          // Return invalid user object
+          return { invalidField: "value" };
+        })
+        .build();
 
       const result = await action();
 
@@ -478,19 +460,18 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle output validation with flattened format (client-facing)", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "flattened",
-          })
-          .schemas({
-            outputSchema: simpleUserSchema, // Expect user object
-          })
-          .handler(async () => {
-            // Return invalid user object
-            return { invalidField: "value" };
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          validationErrorFormat: "flattened",
+        })
+        .schemas({
+          outputSchema: simpleUserSchema, // Expect user object
+        })
+        .handler(async () => {
+          // Return invalid user object
+          return { invalidField: "value" };
+        })
+        .build();
 
       const result = await action();
 
@@ -501,16 +482,15 @@ describe("Basic Workflows", () => {
     });
 
     it("should pass output validation with valid data", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            outputSchema: stringSchema,
-          })
-          .handler(async ({ input }) => {
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          outputSchema: stringSchema,
+        })
+        .handler(async ({ input }) => {
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const result = await action("hello");
 
@@ -523,20 +503,19 @@ describe("Basic Workflows", () => {
 
   describe("Complex bind arguments scenarios", () => {
     it("should handle bind args validation errors with nested format", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "nested",
-          })
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema, stringSchema] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [num, str] = bindArgs;
-            return `${str as string}: ${(input as string).repeat(num as number)}`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          validationErrorFormat: "nested",
+        })
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema, stringSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [num, str] = bindArgs;
+          return `${str as string}: ${(input as string).repeat(num as number)}`;
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid bind args
       const result = await action("invalid", "test", "Hi"); // First bind arg should be number
@@ -550,20 +529,19 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle bind args validation errors with flattened format", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "flattened",
-          })
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema, stringSchema] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [num, str] = bindArgs;
-            return `${str as string}: ${(input as string).repeat(num as number)}`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          validationErrorFormat: "flattened",
+        })
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema, stringSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [num, str] = bindArgs;
+          return `${str as string}: ${(input as string).repeat(num as number)}`;
+        })
+        .build();
 
       // @ts-expect-error - Testing invalid bind args
       const result = await action("invalid", "test", "Hi"); // First bind arg should be number
@@ -576,24 +554,19 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle complex bind args with multiple schemas", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [
-              numberSchema,
-              simpleUserSchema,
-              stringSchema,
-            ] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [multiplier, user, prefix] = bindArgs;
-            const repeated = (input as string).repeat(multiplier as number);
-            return `${prefix as string} ${
-              (user as { name: string }).name
-            }: ${repeated}`;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema, simpleUserSchema, stringSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [multiplier, user, prefix] = bindArgs;
+          const repeated = (input as string).repeat(multiplier as number);
+          return `${prefix as string} ${
+            (user as { name: string }).name
+          }: ${repeated}`;
+        })
+        .build();
 
       const result = await action(
         2,
@@ -609,17 +582,16 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle empty bind args array", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [] as const, // Empty bind schemas
-          })
-          .handler(async ({ input, bindArgs }) => {
-            expect(bindArgs).toEqual([]);
-            return `Input: ${input as string}`;
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [] as const, // Empty bind schemas
+        })
+        .handler(async ({ input, bindArgs }) => {
+          expect(bindArgs).toEqual([]);
+          return `Input: ${input as string}`;
+        })
+        .build();
 
       const result = await action("test");
 
@@ -632,17 +604,16 @@ describe("Basic Workflows", () => {
 
   describe("useActionState workflows", () => {
     it("should handle useActionState signature without bind args", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input, metadata }) => {
-            expect(metadata.prevState).toBeDefined();
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input, metadata }) => {
+          expect(metadata.prevState).toBeDefined();
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const previousState = {
         success: true as const,
@@ -660,21 +631,20 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle useActionState signature with bind args", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema] as const,
-          })
-          .handler(async ({ input, bindArgs, metadata }) => {
-            expect(metadata.prevState).toBeDefined();
-            const [multiplier] = bindArgs;
-            return (input as string).repeat(multiplier as number);
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema] as const,
+        })
+        .handler(async ({ input, bindArgs, metadata }) => {
+          expect(metadata.prevState).toBeDefined();
+          const [multiplier] = bindArgs;
+          return (input as string).repeat(multiplier as number);
+        })
+        .build();
 
       const previousState = {
         success: false as const,
@@ -692,22 +662,21 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle useActionState with complex bind args", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema, simpleUserSchema] as const,
-          })
-          .handler(async ({ input, bindArgs, metadata }) => {
-            expect(metadata.prevState).toBeDefined();
-            const [multiplier, user] = bindArgs;
-            const repeated = (input as string).repeat(multiplier as number);
-            return `${(user as { name: string }).name}: ${repeated}`;
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema, simpleUserSchema] as const,
+        })
+        .handler(async ({ input, bindArgs, metadata }) => {
+          expect(metadata.prevState).toBeDefined();
+          const [multiplier, user] = bindArgs;
+          const repeated = (input as string).repeat(multiplier as number);
+          return `${(user as { name: string }).name}: ${repeated}`;
+        })
+        .build();
 
       const previousState = {
         success: true as const,
@@ -730,17 +699,16 @@ describe("Basic Workflows", () => {
     });
 
     it("should ignore resultFormat when useActionState is true", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return (input as string).toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return (input as string).toUpperCase();
+        })
+        .build();
 
       const previousState = {
         success: true as const,
@@ -764,23 +732,22 @@ describe("Basic Workflows", () => {
       const onErrorMock = vi.fn();
       const onSettledMock = vi.fn();
 
-      const action = craft((action) =>
-        action
-          .errors({
-            businessError: (message: string) =>
-              ({
-                type: "BUSINESS_ERROR",
-                message,
-              }) as const,
-          })
-          .handler(async ({ errors }) => {
-            return errors.businessError("Business logic failed");
-          })
-          .callbacks({
-            onError: onErrorMock,
-            onSettled: onSettledMock,
-          }),
-      );
+      const action = actioncraft()
+        .errors({
+          businessError: (message: string) =>
+            ({
+              type: "BUSINESS_ERROR",
+              message,
+            }) as const,
+        })
+        .handler(async ({ errors }) => {
+          return errors.businessError("Business logic failed");
+        })
+        .callbacks({
+          onError: onErrorMock,
+          onSettled: onSettledMock,
+        })
+        .build();
 
       const result = await action();
 
@@ -807,23 +774,22 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle multiple error types in single action", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            notFound: (id: string) => ({ type: "NOT_FOUND", id }) as const,
-            unauthorized: () => ({ type: "UNAUTHORIZED" }) as const,
-            validation: (field: string) =>
-              ({ type: "VALIDATION", field }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            const str = input as string;
-            if (str === "missing") return errors.notFound(str);
-            if (str === "forbidden") return errors.unauthorized();
-            if (str === "invalid") return errors.validation("input");
-            return str.toUpperCase();
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          notFound: (id: string) => ({ type: "NOT_FOUND", id }) as const,
+          unauthorized: () => ({ type: "UNAUTHORIZED" }) as const,
+          validation: (field: string) =>
+            ({ type: "VALIDATION", field }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          const str = input as string;
+          if (str === "missing") return errors.notFound(str);
+          if (str === "forbidden") return errors.unauthorized();
+          if (str === "invalid") return errors.validation("input");
+          return str.toUpperCase();
+        })
+        .build();
 
       // Test each error type
       const notFoundResult = await action("missing");
@@ -853,21 +819,19 @@ describe("Basic Workflows", () => {
     });
 
     it("should handle thrown errors during validation", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            handleThrownError: (error: unknown) =>
-              ({
-                type: "VALIDATION_THROW_ERROR",
-                message:
-                  error instanceof Error ? error.message : "Unknown error",
-              }) as const,
-          })
-          .handler(async () => {
-            // Simulate a thrown error during action execution
-            throw new Error("Schema validation threw an error");
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          handleThrownError: (error: unknown) =>
+            ({
+              type: "VALIDATION_THROW_ERROR",
+              message: error instanceof Error ? error.message : "Unknown error",
+            }) as const,
+        })
+        .handler(async () => {
+          // Simulate a thrown error during action execution
+          throw new Error("Schema validation threw an error");
+        })
+        .build();
 
       const result = await action();
 
@@ -886,23 +850,22 @@ describe("Basic Workflows", () => {
       let capturedActionMetadata: unknown;
       let capturedCallbackMetadata: unknown;
 
-      const action = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema] as const,
-          })
-          .handler(async ({ input, bindArgs, metadata }) => {
-            capturedActionMetadata = metadata;
-            const [multiplier] = bindArgs;
-            return (input as string).repeat(multiplier as number);
-          })
-          .callbacks({
-            onSuccess: ({ metadata }) => {
-              capturedCallbackMetadata = metadata;
-            },
-          }),
-      );
+      const action = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema] as const,
+        })
+        .handler(async ({ input, bindArgs, metadata }) => {
+          capturedActionMetadata = metadata;
+          const [multiplier] = bindArgs;
+          return (input as string).repeat(multiplier as number);
+        })
+        .callbacks({
+          onSuccess: ({ metadata }) => {
+            capturedCallbackMetadata = metadata;
+          },
+        })
+        .build();
 
       await action(3, "Hi");
 
@@ -929,26 +892,25 @@ describe("Basic Workflows", () => {
       let capturedActionMetadata: unknown;
       let capturedCallbackMetadata: unknown;
 
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema] as const,
-          })
-          .handler(async ({ input, bindArgs, metadata }) => {
-            capturedActionMetadata = metadata;
-            const [multiplier] = bindArgs;
-            return (input as string).repeat(multiplier as number);
-          })
-          .callbacks({
-            onSuccess: ({ metadata }) => {
-              capturedCallbackMetadata = metadata;
-            },
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema] as const,
+        })
+        .handler(async ({ input, bindArgs, metadata }) => {
+          capturedActionMetadata = metadata;
+          const [multiplier] = bindArgs;
+          return (input as string).repeat(multiplier as number);
+        })
+        .callbacks({
+          onSuccess: ({ metadata }) => {
+            capturedCallbackMetadata = metadata;
+          },
+        })
+        .build();
 
       const previousState = {
         success: true as const,

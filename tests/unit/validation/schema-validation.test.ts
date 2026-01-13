@@ -1,19 +1,18 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import {
   stringSchema,
   numberSchema,
   userSchema,
 } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 describe("Schema Validation ($validate)", () => {
   describe("Basic validation", () => {
     it("should validate input successfully with valid data", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const result = await action.$validate({
         name: "John",
@@ -30,11 +29,10 @@ describe("Schema Validation ($validate)", () => {
     });
 
     it("should return validation errors for invalid data", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const result = await action.$validate({
         name: "",
@@ -50,9 +48,9 @@ describe("Schema Validation ($validate)", () => {
     });
 
     it("should handle actions without input schema", async () => {
-      const action = craft((action) =>
-        action.handler(async () => "no input required"),
-      );
+      const action = actioncraft()
+        .handler(async () => "no input required")
+        .build();
 
       const result = await action.$validate("anything");
 
@@ -66,11 +64,10 @@ describe("Schema Validation ($validate)", () => {
 
   describe("Different schema types", () => {
     it("should validate string schema", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input.toUpperCase()),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input.toUpperCase())
+        .build();
 
       const validResult = await action.$validate("hello");
       expect(validResult.success).toBe(true);
@@ -83,11 +80,10 @@ describe("Schema Validation ($validate)", () => {
     });
 
     it("should validate number schema", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => input * 2),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => input * 2)
+        .build();
 
       const validResult = await action.$validate(42);
       expect(validResult.success).toBe(true);
@@ -102,12 +98,11 @@ describe("Schema Validation ($validate)", () => {
 
   describe("Error format configuration", () => {
     it("should respect flattened error format", async () => {
-      const action = craft((action) =>
-        action
-          .config({ validationErrorFormat: "flattened" })
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({ validationErrorFormat: "flattened" })
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const result = await action.$validate({
         name: "",
@@ -123,12 +118,11 @@ describe("Schema Validation ($validate)", () => {
     });
 
     it("should respect nested error format", async () => {
-      const action = craft((action) =>
-        action
-          .config({ validationErrorFormat: "nested" })
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({ validationErrorFormat: "nested" })
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const result = await action.$validate({
         name: "",
@@ -148,11 +142,10 @@ describe("Schema Validation ($validate)", () => {
 
   describe("Type safety", () => {
     it("should provide correct TypeScript types", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => ({ processedUser: input })),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => ({ processedUser: input }))
+        .build();
 
       const result = await action.$validate({
         name: "John",
@@ -175,11 +168,10 @@ describe("Schema Validation ($validate)", () => {
 
   describe("Integration with action execution", () => {
     it("should validate the same way as action execution", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => ({ processedUser: input })),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => ({ processedUser: input }))
+        .build();
 
       const invalidInput = {
         name: "",
@@ -203,11 +195,10 @@ describe("Schema Validation ($validate)", () => {
     });
 
     it("should return identical error structures as convertToClientError", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const invalidInput = {
         name: "",
@@ -230,11 +221,10 @@ describe("Schema Validation ($validate)", () => {
 
   describe("Edge cases", () => {
     it("should handle undefined input", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const result = await action.$validate(undefined as any);
       expect(result.success).toBe(false);
@@ -244,11 +234,10 @@ describe("Schema Validation ($validate)", () => {
     });
 
     it("should handle null input", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const result = await action.$validate(null as any);
       expect(result.success).toBe(false);
@@ -258,11 +247,10 @@ describe("Schema Validation ($validate)", () => {
     });
 
     it("should handle FormData input with object schema", async () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       const formData = new FormData();
       formData.append("name", "John");
@@ -278,7 +266,9 @@ describe("Schema Validation ($validate)", () => {
     });
 
     it("should use the NO_INPUT_SCHEMA_ERROR constant from errors.ts", async () => {
-      const action = craft((action) => action.handler(async () => "no schema"));
+      const action = actioncraft()
+        .handler(async () => "no schema")
+        .build();
 
       const result = await action.$validate("anything");
 

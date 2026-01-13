@@ -1,11 +1,11 @@
-import { craft, action, initial } from "../../../src/index";
+import { actioncraft, initial } from "../../../src/index";
 import {
   stringSchema,
   numberSchema,
   simpleUserSchema,
   basicFormDataSchema,
 } from "../../__fixtures__/schemas";
-import { describe, expect, it, vi } from "../../setup";
+import { describe, it, expect, vi } from "vitest";
 
 describe("Advanced Performance Benchmarks", () => {
   describe("Critical path performance", () => {
@@ -17,11 +17,10 @@ describe("Advanced Performance Benchmarks", () => {
       const creationStartTime = performance.now();
 
       const actions = Array.from({ length: iterations }, (_, i) =>
-        craft((action) =>
-          action
-            .schemas({ inputSchema: stringSchema })
-            .handler(async ({ input }) => `processed-${input}-${i}`),
-        ),
+        actioncraft()
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input }) => `processed-${input}-${i}`)
+          .build(),
       );
 
       const creationEndTime = performance.now();
@@ -114,20 +113,19 @@ describe("Advanced Performance Benchmarks", () => {
         },
       } as const;
 
-      const complexValidationAction = craft((action) =>
-        action
-          .schemas({ inputSchema: complexSchema })
-          .handler(async ({ input }) => {
-            const data = input as any;
-            return {
-              processed: true,
-              name: data.name,
-              email: data.email,
-              age: data.age,
-              tags: data.tags || [],
-            };
-          }),
-      );
+      const complexValidationAction = actioncraft()
+        .schemas({ inputSchema: complexSchema })
+        .handler(async ({ input }) => {
+          const data = input as any;
+          return {
+            processed: true,
+            name: data.name,
+            email: data.email,
+            age: data.age,
+            tags: data.tags || [],
+          };
+        })
+        .build();
 
       const validData = {
         name: "John Doe",
@@ -159,30 +157,29 @@ describe("Advanced Performance Benchmarks", () => {
     });
 
     it("should handle FormData processing efficiently", async () => {
-      const formDataAction = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .schemas({ inputSchema: basicFormDataSchema })
-          .handler(async ({ input }) => {
-            // Simulate FormData processing
-            const processed = {
-              name: input.name.toUpperCase(),
-              email: input.email.toLowerCase(),
-              age: input.age,
-              processedAt: Date.now(),
-            };
+      const formDataAction = actioncraft()
+        .config({ useActionState: true })
+        .schemas({ inputSchema: basicFormDataSchema })
+        .handler(async ({ input }) => {
+          // Simulate FormData processing
+          const processed = {
+            name: input.name.toUpperCase(),
+            email: input.email.toLowerCase(),
+            age: input.age,
+            processedAt: Date.now(),
+          };
 
-            // Simulate some processing work
-            const data = Array.from({ length: 1000 }, (_, i) => i * input.age);
-            const sum = data.reduce((a, b) => a + b, 0);
+          // Simulate some processing work
+          const data = Array.from({ length: 1000 }, (_, i) => i * input.age);
+          const sum = data.reduce((a, b) => a + b, 0);
 
-            return {
-              ...processed,
-              dataSum: sum,
-              dataLength: data.length,
-            };
-          }),
-      );
+          return {
+            ...processed,
+            dataSum: sum,
+            dataLength: data.length,
+          };
+        })
+        .build();
 
       const iterations = 100;
       const formDataSets = Array.from({ length: iterations }, (_, i) => {
@@ -222,43 +219,42 @@ describe("Advanced Performance Benchmarks", () => {
 
   describe("Scalability benchmarks", () => {
     it("should scale with increasing data sizes", async () => {
-      const scalabilityAction = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => {
-            const size = input as number;
+      const scalabilityAction = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => {
+          const size = input as number;
 
-            // Create and process data of varying sizes
-            const data = Array.from({ length: size }, (_, i) => ({
-              id: i,
-              value: Math.random() * 1000,
-              metadata: {
-                created: Date.now(),
-                processed: false,
-              },
-            }));
+          // Create and process data of varying sizes
+          const data = Array.from({ length: size }, (_, i) => ({
+            id: i,
+            value: Math.random() * 1000,
+            metadata: {
+              created: Date.now(),
+              processed: false,
+            },
+          }));
 
-            // Process data
-            const processed = data.map((item) => ({
-              ...item,
-              metadata: {
-                ...item.metadata,
-                processed: true,
-                processedAt: Date.now(),
-              },
-              processedValue: item.value * 2,
-            }));
+          // Process data
+          const processed = data.map((item) => ({
+            ...item,
+            metadata: {
+              ...item.metadata,
+              processed: true,
+              processedAt: Date.now(),
+            },
+            processedValue: item.value * 2,
+          }));
 
-            return {
-              originalSize: size,
-              processedSize: processed.length,
-              avgValue:
-                processed.reduce((sum, item) => sum + item.processedValue, 0) /
-                processed.length,
-              sample: processed.slice(0, 5),
-            };
-          }),
-      );
+          return {
+            originalSize: size,
+            processedSize: processed.length,
+            avgValue:
+              processed.reduce((sum, item) => sum + item.processedValue, 0) /
+              processed.length,
+            sample: processed.slice(0, 5),
+          };
+        })
+        .build();
 
       const dataSizes = [100, 500, 1000, 5000, 10000];
       const performanceResults: Array<{ size: number; time: number }> = [];
@@ -294,58 +290,55 @@ describe("Advanced Performance Benchmarks", () => {
 
     it("should handle concurrent actions with different complexities", async () => {
       // Simple action
-      const simpleAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            await new Promise((resolve) => setTimeout(resolve, 1));
-            return `simple-${input}`;
-          }),
-      );
+      const simpleAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+          return `simple-${input}`;
+        })
+        .build();
 
       // Medium complexity action
-      const mediumAction = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => {
-            const size = input as number;
-            const data = Array.from({ length: size }, (_, i) => i * 2);
-            await new Promise((resolve) => setTimeout(resolve, 2));
-            return {
-              size,
-              sum: data.reduce((a, b) => a + b, 0),
-              avg: data.reduce((a, b) => a + b, 0) / data.length,
-            };
-          }),
-      );
+      const mediumAction = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => {
+          const size = input as number;
+          const data = Array.from({ length: size }, (_, i) => i * 2);
+          await new Promise((resolve) => setTimeout(resolve, 2));
+          return {
+            size,
+            sum: data.reduce((a, b) => a + b, 0),
+            avg: data.reduce((a, b) => a + b, 0) / data.length,
+          };
+        })
+        .build();
 
       // Complex action
-      const complexAction = craft((action) =>
-        action
-          .schemas({ inputSchema: simpleUserSchema })
-          .handler(async ({ input }) => {
-            const user = input as { name: string; age: number };
+      const complexAction = actioncraft()
+        .schemas({ inputSchema: simpleUserSchema })
+        .handler(async ({ input }) => {
+          const user = input as { name: string; age: number };
 
-            // Simulate complex processing
-            const complexData = Array.from({ length: 1000 }, (_, i) => ({
-              id: i,
-              userName: user.name,
-              userAge: user.age,
-              computed: i * user.age,
-            }));
+          // Simulate complex processing
+          const complexData = Array.from({ length: 1000 }, (_, i) => ({
+            id: i,
+            userName: user.name,
+            userAge: user.age,
+            computed: i * user.age,
+          }));
 
-            await new Promise((resolve) => setTimeout(resolve, 5));
+          await new Promise((resolve) => setTimeout(resolve, 5));
 
-            return {
-              user,
-              processedItems: complexData.length,
-              totalComputed: complexData.reduce(
-                (sum, item) => sum + item.computed,
-                0,
-              ),
-            };
-          }),
-      );
+          return {
+            user,
+            processedItems: complexData.length,
+            totalComputed: complexData.reduce(
+              (sum, item) => sum + item.computed,
+              0,
+            ),
+          };
+        })
+        .build();
 
       const concurrentCount = 50;
       const startTime = performance.now();
@@ -406,48 +399,44 @@ describe("Advanced Performance Benchmarks", () => {
         onSettled: 0,
       };
 
-      const callbackAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            if (input === "error") {
-              throw new Error("Callback test error");
-            }
-            return `processed-${input}`;
-          })
-          .callbacks({
-            onStart: () => {
-              callbackCounts.onStart++;
-              // Simulate callback work
-              const temp = Array.from({ length: 100 }, (_, i) => i);
-              void temp.reduce((a, b) => a + b, 0);
-            },
-            onSuccess: ({ data }) => {
-              callbackCounts.onSuccess++;
-              // Simulate callback work
-              const temp = Array.from(
-                { length: 100 },
-                (_, i) => i + data.length,
-              );
-              void temp.reduce((a, b) => a + b, 0);
-            },
-            onError: ({ error }) => {
-              callbackCounts.onError++;
-              // Simulate callback work
-              const temp = Array.from(
-                { length: 100 },
-                (_, i) => i + (error as any).type.length,
-              );
-              void temp.reduce((a, b) => a + b, 0);
-            },
-            onSettled: () => {
-              callbackCounts.onSettled++;
-              // Simulate callback work
-              const temp = Array.from({ length: 100 }, (_, i) => i * 2);
-              void temp.reduce((a, b) => a + b, 0);
-            },
-          }),
-      );
+      const callbackAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          if (input === "error") {
+            throw new Error("Callback test error");
+          }
+          return `processed-${input}`;
+        })
+        .callbacks({
+          onStart: () => {
+            callbackCounts.onStart++;
+            // Simulate callback work
+            const temp = Array.from({ length: 100 }, (_, i) => i);
+            void temp.reduce((a, b) => a + b, 0);
+          },
+          onSuccess: ({ data }) => {
+            callbackCounts.onSuccess++;
+            // Simulate callback work
+            const temp = Array.from({ length: 100 }, (_, i) => i + data.length);
+            void temp.reduce((a, b) => a + b, 0);
+          },
+          onError: ({ error }) => {
+            callbackCounts.onError++;
+            // Simulate callback work
+            const temp = Array.from(
+              { length: 100 },
+              (_, i) => i + (error as any).type.length,
+            );
+            void temp.reduce((a, b) => a + b, 0);
+          },
+          onSettled: () => {
+            callbackCounts.onSettled++;
+            // Simulate callback work
+            const temp = Array.from({ length: 100 }, (_, i) => i * 2);
+            void temp.reduce((a, b) => a + b, 0);
+          },
+        })
+        .build();
 
       const iterations = 200;
       const startTime = performance.now();
@@ -481,37 +470,36 @@ describe("Advanced Performance Benchmarks", () => {
 
   describe("Memory usage optimization", () => {
     it("should handle memory-intensive operations without leaks", async () => {
-      const memoryAction = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => {
-            const iterations = input as number;
+      const memoryAction = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => {
+          const iterations = input as number;
 
-            // Create large temporary data structures
-            const largeArrays: number[][] = [];
+          // Create large temporary data structures
+          const largeArrays: number[][] = [];
 
-            for (let i = 0; i < iterations; i++) {
-              const largeArray = Array.from({ length: 10000 }, (_, j) => i * j);
-              largeArrays.push(largeArray);
+          for (let i = 0; i < iterations; i++) {
+            const largeArray = Array.from({ length: 10000 }, (_, j) => i * j);
+            largeArrays.push(largeArray);
 
-              // Process and discard to simulate real usage
-              const sum = largeArray.reduce((a, b) => a + b, 0);
-              void sum; // Use the result to prevent optimization
-            }
+            // Process and discard to simulate real usage
+            const sum = largeArray.reduce((a, b) => a + b, 0);
+            void sum; // Use the result to prevent optimization
+          }
 
-            // Return only summary data, not the large arrays
-            return {
-              iterations,
-              totalArrays: largeArrays.length,
-              avgArrayLength:
-                largeArrays.reduce((sum, arr) => sum + arr.length, 0) /
-                largeArrays.length,
-              memoryUsage: (globalThis as any).process?.memoryUsage?.() || {
-                heapUsed: 0,
-              },
-            };
-          }),
-      );
+          // Return only summary data, not the large arrays
+          return {
+            iterations,
+            totalArrays: largeArrays.length,
+            avgArrayLength:
+              largeArrays.reduce((sum, arr) => sum + arr.length, 0) /
+              largeArrays.length,
+            memoryUsage: (globalThis as any).process?.memoryUsage?.() || {
+              heapUsed: 0,
+            },
+          };
+        })
+        .build();
 
       const initialMemory =
         (globalThis as any).process?.memoryUsage?.()?.heapUsed || 0;
@@ -539,36 +527,35 @@ describe("Advanced Performance Benchmarks", () => {
     });
 
     it("should efficiently handle repeated action executions", async () => {
-      const repeatedAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            // Create some data structures that should be garbage collected
-            const tempData = {
-              input: input as string,
-              timestamp: Date.now(),
-              largeArray: Array.from(
-                { length: 1000 },
-                (_, i) => `item-${i}-${input}`,
-              ),
-              metadata: {
-                processed: true,
-                processingTime: Date.now(),
-              },
-            };
+      const repeatedAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          // Create some data structures that should be garbage collected
+          const tempData = {
+            input: input as string,
+            timestamp: Date.now(),
+            largeArray: Array.from(
+              { length: 1000 },
+              (_, i) => `item-${i}-${input}`,
+            ),
+            metadata: {
+              processed: true,
+              processingTime: Date.now(),
+            },
+          };
 
-            // Process the data
-            const result = {
-              input: tempData.input,
-              itemCount: tempData.largeArray.length,
-              firstItem: tempData.largeArray[0],
-              lastItem: tempData.largeArray[tempData.largeArray.length - 1],
-              processed: tempData.metadata.processed,
-            };
+          // Process the data
+          const result = {
+            input: tempData.input,
+            itemCount: tempData.largeArray.length,
+            firstItem: tempData.largeArray[0],
+            lastItem: tempData.largeArray[tempData.largeArray.length - 1],
+            processed: tempData.metadata.processed,
+          };
 
-            return result;
-          }),
-      );
+          return result;
+        })
+        .build();
 
       const iterations = 1000;
       const batchSize = 100;
@@ -602,38 +589,37 @@ describe("Advanced Performance Benchmarks", () => {
     });
 
     it("should handle concurrent memory-intensive operations", async () => {
-      const concurrentMemoryAction = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => {
-            const size = input as number;
+      const concurrentMemoryAction = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => {
+          const size = input as number;
 
-            // Create data proportional to input size
-            const data = Array.from({ length: size * 100 }, (_, i) => ({
-              id: i,
-              value: Math.random(),
-              computed: i * size,
-              metadata: {
-                created: Date.now(),
-                batch: Math.floor(i / 100),
-              },
-            }));
+          // Create data proportional to input size
+          const data = Array.from({ length: size * 100 }, (_, i) => ({
+            id: i,
+            value: Math.random(),
+            computed: i * size,
+            metadata: {
+              created: Date.now(),
+              batch: Math.floor(i / 100),
+            },
+          }));
 
-            // Simulate processing
-            await new Promise((resolve) => setTimeout(resolve, 1));
+          // Simulate processing
+          await new Promise((resolve) => setTimeout(resolve, 1));
 
-            // Return summary instead of full data
-            return {
-              inputSize: size,
-              dataLength: data.length,
-              totalComputed: data.reduce((sum, item) => sum + item.computed, 0),
-              avgValue:
-                data.reduce((sum, item) => sum + item.value, 0) / data.length,
-              batchCount:
-                Math.max(...data.map((item) => item.metadata.batch)) + 1,
-            };
-          }),
-      );
+          // Return summary instead of full data
+          return {
+            inputSize: size,
+            dataLength: data.length,
+            totalComputed: data.reduce((sum, item) => sum + item.computed, 0),
+            avgValue:
+              data.reduce((sum, item) => sum + item.value, 0) / data.length,
+            batchCount:
+              Math.max(...data.map((item) => item.metadata.batch)) + 1,
+          };
+        })
+        .build();
 
       const concurrentCount = 20;
       const startTime = performance.now();
@@ -673,19 +659,18 @@ describe("Advanced Performance Benchmarks", () => {
 
       // ActionBuilder API
       const builderActions = Array.from({ length: iterations }, (_, i) =>
-        action()
+        actioncraft()
           .schemas({ inputSchema: stringSchema })
           .handler(async ({ input }) => `builder-${input}-${i}`)
-          .craft(),
+          .build(),
       );
 
       // craft API
       const craftActions = Array.from({ length: iterations }, (_, i) =>
-        craft((action) =>
-          action
-            .schemas({ inputSchema: stringSchema })
-            .handler(async ({ input }) => `craft-${input}-${i}`),
-        ),
+        actioncraft()
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input }) => `craft-${input}-${i}`)
+          .build(),
       );
 
       // Benchmark ActionBuilder execution
@@ -729,7 +714,7 @@ describe("Advanced Performance Benchmarks", () => {
       const onErrorMock = vi.fn();
 
       // Complex ActionBuilder configuration
-      const complexBuilderAction = action()
+      const complexBuilderAction = actioncraft()
         .config({
           validationErrorFormat: "nested" as const,
           resultFormat: "api" as const,
@@ -768,50 +753,49 @@ describe("Advanced Performance Benchmarks", () => {
           onSuccess: onSuccessMock,
           onError: onErrorMock,
         })
-        .craft();
+        .build();
 
       // Complex craft configuration
-      const complexCraftAction = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "nested" as const,
-            resultFormat: "api" as const,
-            handleThrownError: (error: unknown) =>
-              ({
-                type: "CRAFT_ERROR",
-                message: error instanceof Error ? error.message : "Craft error",
-              }) as const,
-          })
-          .schemas({
-            inputSchema: simpleUserSchema,
-            bindSchemas: [stringSchema, numberSchema] as const,
-          })
-          .errors({
-            validationFailed: (field: string) =>
-              ({
-                type: "VALIDATION_FAILED",
-                field,
-              }) as const,
-          })
-          .handler(async ({ input, bindArgs, errors }) => {
-            const [operation, multiplier] = bindArgs;
-            const user = input as { name: string; age: number };
+      const complexCraftAction = actioncraft()
+        .config({
+          validationErrorFormat: "nested" as const,
+          resultFormat: "api" as const,
+          handleThrownError: (error: unknown) =>
+            ({
+              type: "CRAFT_ERROR",
+              message: error instanceof Error ? error.message : "Craft error",
+            }) as const,
+        })
+        .schemas({
+          inputSchema: simpleUserSchema,
+          bindSchemas: [stringSchema, numberSchema] as const,
+        })
+        .errors({
+          validationFailed: (field: string) =>
+            ({
+              type: "VALIDATION_FAILED",
+              field,
+            }) as const,
+        })
+        .handler(async ({ input, bindArgs, errors }) => {
+          const [operation, multiplier] = bindArgs;
+          const user = input as { name: string; age: number };
 
-            if (user.age < 0) {
-              return errors.validationFailed("age");
-            }
+          if (user.age < 0) {
+            return errors.validationFailed("age");
+          }
 
-            return {
-              user,
-              operation: operation as string,
-              result: user.age * (multiplier as number),
-            };
-          })
-          .callbacks({
-            onSuccess: onSuccessMock,
-            onError: onErrorMock,
-          }),
-      );
+          return {
+            user,
+            operation: operation as string,
+            result: user.age * (multiplier as number),
+          };
+        })
+        .callbacks({
+          onSuccess: onSuccessMock,
+          onError: onErrorMock,
+        })
+        .build();
 
       const testData = { name: "Test User", age: 25 };
       const iterations = 100;

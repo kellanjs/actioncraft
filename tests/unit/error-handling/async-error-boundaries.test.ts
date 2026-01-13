@@ -1,34 +1,33 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import { stringSchema, numberSchema } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 
 describe("Async Error Boundaries", () => {
   describe("Promise Rejection Handling", () => {
     it("should handle rejected promises in async handlers", async () => {
-      const action = craft((action) =>
-        action
-          .config({
-            handleThrownError: (error: unknown) => ({
-              type: "ASYNC_REJECTION" as const,
-              message: error instanceof Error ? error.message : String(error),
-              isRejection: true,
-            }),
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            if (input === "reject") {
-              return Promise.reject(new Error("Async operation failed"));
-            }
-            if (input === "reject-string") {
-              return Promise.reject("String rejection");
-            }
-            if (input === "reject-object") {
-              return Promise.reject({ code: 500, message: "Object rejection" });
-            }
-            return "success";
+      const action = actioncraft()
+        .config({
+          handleThrownError: (error: unknown) => ({
+            type: "ASYNC_REJECTION" as const,
+            message: error instanceof Error ? error.message : String(error),
+            isRejection: true,
           }),
-      );
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          if (input === "reject") {
+            return Promise.reject(new Error("Async operation failed"));
+          }
+          if (input === "reject-string") {
+            return Promise.reject("String rejection");
+          }
+          if (input === "reject-object") {
+            return Promise.reject({ code: 500, message: "Object rejection" });
+          }
+          return "success";
+        })
+        .build();
 
       // Test Error rejection
       const errorResult = await action("reject");
@@ -58,29 +57,28 @@ describe("Async Error Boundaries", () => {
     });
 
     it("should handle timeout scenarios in async operations", async () => {
-      const timeoutAction = craft((action) =>
-        action
-          .config({
-            handleThrownError: (error: unknown) => ({
-              type: "TIMEOUT_ERROR" as const,
-              message:
-                error instanceof Error ? error.message : "Operation timed out",
-              isTimeout: true,
-            }),
-          })
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => {
-            const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error("Operation timed out")), input);
-            });
-
-            const operationPromise = new Promise((resolve) => {
-              setTimeout(() => resolve("completed"), input + 100);
-            });
-
-            return Promise.race([timeoutPromise, operationPromise]);
+      const timeoutAction = actioncraft()
+        .config({
+          handleThrownError: (error: unknown) => ({
+            type: "TIMEOUT_ERROR" as const,
+            message:
+              error instanceof Error ? error.message : "Operation timed out",
+            isTimeout: true,
           }),
-      );
+        })
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => {
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("Operation timed out")), input);
+          });
+
+          const operationPromise = new Promise((resolve) => {
+            setTimeout(() => resolve("completed"), input + 100);
+          });
+
+          return Promise.race([timeoutPromise, operationPromise]);
+        })
+        .build();
 
       // Test timeout (50ms timeout, operation takes 150ms)
       const result = await timeoutAction(50);
@@ -94,60 +92,59 @@ describe("Async Error Boundaries", () => {
     });
 
     it("should handle concurrent async operations with partial failures", async () => {
-      const concurrentAction = craft((action) =>
-        action
-          .schemas({ inputSchema: z.array(stringSchema) })
-          .errors({
-            concurrentFailure: (
-              results: Array<{
-                id: string;
-                success: boolean;
-                data?: any;
-                error?: string;
-              }>,
-            ) => ({
-              type: "CONCURRENT_FAILURE" as const,
-              results,
-              successCount: results.filter((r) => r.success).length,
-              failureCount: results.filter((r) => !r.success).length,
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            const operations = input.map(async (item, index) => {
-              try {
-                if (item.startsWith("fail-")) {
-                  throw new Error(`Operation ${index} failed`);
-                }
-
-                // Simulate async work with random delay
-                await new Promise((resolve) =>
-                  setTimeout(resolve, Math.random() * 50),
-                );
-
-                return {
-                  id: `op-${index}`,
-                  success: true,
-                  data: `processed-${item}`,
-                };
-              } catch (error) {
-                return {
-                  id: `op-${index}`,
-                  success: false,
-                  error: error instanceof Error ? error.message : String(error),
-                };
-              }
-            });
-
-            const results = await Promise.all(operations);
-            const hasFailures = results.some((r) => !r.success);
-
-            if (hasFailures) {
-              return errors.concurrentFailure(results);
-            }
-
-            return results.map((r) => r.data);
+      const concurrentAction = actioncraft()
+        .schemas({ inputSchema: z.array(stringSchema) })
+        .errors({
+          concurrentFailure: (
+            results: Array<{
+              id: string;
+              success: boolean;
+              data?: any;
+              error?: string;
+            }>,
+          ) => ({
+            type: "CONCURRENT_FAILURE" as const,
+            results,
+            successCount: results.filter((r) => r.success).length,
+            failureCount: results.filter((r) => !r.success).length,
           }),
-      );
+        })
+        .handler(async ({ input, errors }) => {
+          const operations = input.map(async (item, index) => {
+            try {
+              if (item.startsWith("fail-")) {
+                throw new Error(`Operation ${index} failed`);
+              }
+
+              // Simulate async work with random delay
+              await new Promise((resolve) =>
+                setTimeout(resolve, Math.random() * 50),
+              );
+
+              return {
+                id: `op-${index}`,
+                success: true,
+                data: `processed-${item}`,
+              };
+            } catch (error) {
+              return {
+                id: `op-${index}`,
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+              };
+            }
+          });
+
+          const results = await Promise.all(operations);
+          const hasFailures = results.some((r) => !r.success);
+
+          if (hasFailures) {
+            return errors.concurrentFailure(results);
+          }
+
+          return results.map((r) => r.data);
+        })
+        .build();
 
       const mixedInput = [
         "item1",
@@ -175,38 +172,37 @@ describe("Async Error Boundaries", () => {
     it("should handle resource cleanup on async errors", async () => {
       let resourcesAtError: string[] = [];
 
-      const resourceAction = craft((action) =>
-        action
-          .config({
-            handleThrownError: (error: unknown) => ({
-              type: "RESOURCE_ERROR" as const,
-              message: error instanceof Error ? error.message : String(error),
-              resourcesAtError: [...resourcesAtError],
-            }),
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            const resources: string[] = [];
-
-            // Simulate resource acquisition
-            resources.push("database-connection");
-            resources.push("file-handle");
-            resources.push("network-socket");
-
-            try {
-              if (input === "fail-after-resources") {
-                // Capture resources before error
-                resourcesAtError = [...resources];
-                throw new Error("Operation failed after resource allocation");
-              }
-
-              return "operation-completed";
-            } finally {
-              // Simulate resource cleanup
-              resources.length = 0;
-            }
+      const resourceAction = actioncraft()
+        .config({
+          handleThrownError: (error: unknown) => ({
+            type: "RESOURCE_ERROR" as const,
+            message: error instanceof Error ? error.message : String(error),
+            resourcesAtError: [...resourcesAtError],
           }),
-      );
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          const resources: string[] = [];
+
+          // Simulate resource acquisition
+          resources.push("database-connection");
+          resources.push("file-handle");
+          resources.push("network-socket");
+
+          try {
+            if (input === "fail-after-resources") {
+              // Capture resources before error
+              resourcesAtError = [...resources];
+              throw new Error("Operation failed after resource allocation");
+            }
+
+            return "operation-completed";
+          } finally {
+            // Simulate resource cleanup
+            resources.length = 0;
+          }
+        })
+        .build();
 
       const result = await resourceAction("fail-after-resources");
       expect(result.success).toBe(false);
@@ -229,25 +225,24 @@ describe("Async Error Boundaries", () => {
         throw new Error("Generator failed");
       }
 
-      const generatorAction = craft((action) =>
-        action
-          .config({
-            handleThrownError: (error: unknown) => ({
-              type: "GENERATOR_ERROR" as const,
-              message: error instanceof Error ? error.message : String(error),
-              isGeneratorError: true,
-            }),
-          })
-          .handler(async () => {
-            const results: string[] = [];
-
-            for await (const item of failingGenerator()) {
-              results.push(item);
-            }
-
-            return results;
+      const generatorAction = actioncraft()
+        .config({
+          handleThrownError: (error: unknown) => ({
+            type: "GENERATOR_ERROR" as const,
+            message: error instanceof Error ? error.message : String(error),
+            isGeneratorError: true,
           }),
-      );
+        })
+        .handler(async () => {
+          const results: string[] = [];
+
+          for await (const item of failingGenerator()) {
+            results.push(item);
+          }
+
+          return results;
+        })
+        .build();
 
       const result = await generatorAction();
       expect(result.success).toBe(false);
@@ -273,26 +268,25 @@ describe("Async Error Boundaries", () => {
         }
       }
 
-      const iteratorAction = craft((action) =>
-        action
-          .config({
-            handleThrownError: (error: unknown) => ({
-              type: "ITERATOR_ERROR" as const,
-              message: error instanceof Error ? error.message : String(error),
-              cleanupExecuted: cleanupCalled,
-            }),
-          })
-          .handler(async () => {
-            const results: string[] = [];
-            const iterator = cleanupGenerator();
-
-            for await (const item of iterator) {
-              results.push(item);
-            }
-
-            return results;
+      const iteratorAction = actioncraft()
+        .config({
+          handleThrownError: (error: unknown) => ({
+            type: "ITERATOR_ERROR" as const,
+            message: error instanceof Error ? error.message : String(error),
+            cleanupExecuted: cleanupCalled,
           }),
-      );
+        })
+        .handler(async () => {
+          const results: string[] = [];
+          const iterator = cleanupGenerator();
+
+          for await (const item of iterator) {
+            results.push(item);
+          }
+
+          return results;
+        })
+        .build();
 
       const result = await iteratorAction();
       expect(result.success).toBe(false);
@@ -310,20 +304,19 @@ describe("Async Error Boundaries", () => {
     it("should handle errors in async callbacks without affecting main flow", async () => {
       let callbackExecuted = false;
 
-      const callbackAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return `processed-${input}`;
-          })
-          .callbacks({
-            onSuccess: async () => {
-              callbackExecuted = true;
-              // Callbacks that throw errors should not affect the main result
-              throw new Error("Success callback failed");
-            },
-          }),
-      );
+      const callbackAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return `processed-${input}`;
+        })
+        .callbacks({
+          onSuccess: async () => {
+            callbackExecuted = true;
+            // Callbacks that throw errors should not affect the main result
+            throw new Error("Success callback failed");
+          },
+        })
+        .build();
 
       const result = await callbackAction("test");
 
@@ -340,20 +333,19 @@ describe("Async Error Boundaries", () => {
     it("should handle async callback execution", async () => {
       let callbackCompleted = false;
 
-      const callbackAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return `processed-${input}`;
-          })
-          .callbacks({
-            onSuccess: async () => {
-              // Simulate async callback work
-              await new Promise((resolve) => setTimeout(resolve, 10));
-              callbackCompleted = true;
-            },
-          }),
-      );
+      const callbackAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return `processed-${input}`;
+        })
+        .callbacks({
+          onSuccess: async () => {
+            // Simulate async callback work
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            callbackCompleted = true;
+          },
+        })
+        .build();
 
       const result = await callbackAction("test");
 
@@ -396,19 +388,18 @@ describe("Async Error Boundaries", () => {
         },
       } as const;
 
-      const asyncValidationAction = craft((action) =>
-        action
-          .config({
-            handleThrownError: (error: unknown) => ({
-              type: "ASYNC_VALIDATION_ERROR" as const,
-              message: error instanceof Error ? error.message : String(error),
-            }),
-          })
-          .schemas({ inputSchema: asyncValidationSchema })
-          .handler(async ({ input }) => {
-            return `validated-${input}`;
+      const asyncValidationAction = actioncraft()
+        .config({
+          handleThrownError: (error: unknown) => ({
+            type: "ASYNC_VALIDATION_ERROR" as const,
+            message: error instanceof Error ? error.message : String(error),
           }),
-      );
+        })
+        .schemas({ inputSchema: asyncValidationSchema })
+        .handler(async ({ input }) => {
+          return `validated-${input}`;
+        })
+        .build();
 
       // Test async validation failure
       const result = await asyncValidationAction("async-fail");
@@ -421,16 +412,15 @@ describe("Async Error Boundaries", () => {
     });
 
     it("should handle concurrent validation errors", async () => {
-      const concurrentValidationAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema, stringSchema] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            return { input, bindArgs };
-          }),
-      );
+      const concurrentValidationAction = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema, stringSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          return { input, bindArgs };
+        })
+        .build();
 
       // Test concurrent validation failures
       const result = await concurrentValidationAction(
@@ -450,28 +440,27 @@ describe("Async Error Boundaries", () => {
 
   describe("Memory and Resource Leak Prevention", () => {
     it("should prevent memory leaks in error scenarios", async () => {
-      const memoryAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            memoryError: (allocatedSize: number) => ({
-              type: "MEMORY_ERROR" as const,
-              allocatedSize,
-              timestamp: Date.now(),
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            // Simulate memory allocation
-            const largeArray = new Array(1000000).fill(input);
-
-            if (input === "memory-fail") {
-              // Error should not prevent garbage collection
-              return errors.memoryError(largeArray.length);
-            }
-
-            return "memory-success";
+      const memoryAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          memoryError: (allocatedSize: number) => ({
+            type: "MEMORY_ERROR" as const,
+            allocatedSize,
+            timestamp: Date.now(),
           }),
-      );
+        })
+        .handler(async ({ input, errors }) => {
+          // Simulate memory allocation
+          const largeArray = new Array(1000000).fill(input);
+
+          if (input === "memory-fail") {
+            // Error should not prevent garbage collection
+            return errors.memoryError(largeArray.length);
+          }
+
+          return "memory-success";
+        })
+        .build();
 
       const result = await memoryAction("memory-fail");
       expect(result.success).toBe(false);
@@ -492,30 +481,29 @@ describe("Async Error Boundaries", () => {
       let weakRefTarget = { id: "test-object" };
       const weakRef = new WeakRef(weakRefTarget);
 
-      const weakRefAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            weakRefError: (hasTarget: boolean) => ({
-              type: "WEAK_REF_ERROR" as const,
-              hasTarget,
-            }),
-          })
-          .handler(async ({ input, errors }) => {
-            const target = weakRef.deref();
-
-            if (input === "clear-ref") {
-              weakRefTarget = null as any;
-              // Force garbage collection if available
-              if ((globalThis as any).gc) {
-                (globalThis as any).gc();
-              }
-              return errors.weakRefError(target !== undefined);
-            }
-
-            return target ? "target-exists" : "target-cleared";
+      const weakRefAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          weakRefError: (hasTarget: boolean) => ({
+            type: "WEAK_REF_ERROR" as const,
+            hasTarget,
           }),
-      );
+        })
+        .handler(async ({ input, errors }) => {
+          const target = weakRef.deref();
+
+          if (input === "clear-ref") {
+            weakRefTarget = null as any;
+            // Force garbage collection if available
+            if ((globalThis as any).gc) {
+              (globalThis as any).gc();
+            }
+            return errors.weakRefError(target !== undefined);
+          }
+
+          return target ? "target-exists" : "target-cleared";
+        })
+        .build();
 
       const result = await weakRefAction("clear-ref");
       expect(result.success).toBe(false);

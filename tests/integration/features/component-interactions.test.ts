@@ -1,74 +1,70 @@
-import { craft, initial, getActionId } from "../../../src/index";
+import { actioncraft, initial, getActionId } from "../../../src/index";
 import { isOk, isErr } from "../../../src/types/result";
 import {
   stringSchema,
   numberSchema,
   simpleUserSchema,
 } from "../../__fixtures__/schemas";
-import { describe, expect, it, vi } from "../../setup";
+import { describe, it, expect, vi } from "vitest";
 
 describe("Component Interactions", () => {
   describe("Schema validation interactions", () => {
     it("should handle schema composition and validation chaining", async () => {
       // Create a schema validator action
-      const validateUserData = craft((action) =>
-        action
-          .config({ resultFormat: "functional" })
-          .schemas({ inputSchema: simpleUserSchema })
-          .handler(async ({ input }) => {
-            const user = input as { name: string; age: number };
-            return {
-              isValid: true,
-              validatedUser: user,
-              validationTimestamp: Date.now(),
-            };
-          }),
-      );
+      const validateUserData = actioncraft()
+        .config({ resultFormat: "functional" })
+        .schemas({ inputSchema: simpleUserSchema })
+        .handler(async ({ input }) => {
+          const user = input as { name: string; age: number };
+          return {
+            isValid: true,
+            validatedUser: user,
+            validationTimestamp: Date.now(),
+          };
+        })
+        .build();
 
       // Create a data processor that uses validated data
-      const processValidatedData = craft((action) =>
-        action
-          .schemas({
-            inputSchema: {
-              "~standard": {
-                version: 1,
-                vendor: "test",
-                validate: (input: unknown) => {
-                  if (
-                    typeof input === "object" &&
-                    input !== null &&
-                    "isValid" in input &&
-                    "validatedUser" in input
-                  ) {
-                    return { value: input };
-                  }
-                  return {
-                    issues: [
-                      { message: "Invalid validation result", path: [] },
-                    ],
-                  };
-                },
+      const processValidatedData = actioncraft()
+        .schemas({
+          inputSchema: {
+            "~standard": {
+              version: 1,
+              vendor: "test",
+              validate: (input: unknown) => {
+                if (
+                  typeof input === "object" &&
+                  input !== null &&
+                  "isValid" in input &&
+                  "validatedUser" in input
+                ) {
+                  return { value: input };
+                }
+                return {
+                  issues: [{ message: "Invalid validation result", path: [] }],
+                };
               },
-              "~validate": function (input: unknown) {
-                return this["~standard"].validate(input);
-              },
-            } as const,
-          })
-          .handler(async ({ input }) => {
-            const validationResult = input as any;
-            const user = validationResult.validatedUser;
+            },
+            "~validate": function (input: unknown) {
+              return this["~standard"].validate(input);
+            },
+          } as const,
+        })
+        .handler(async ({ input }) => {
+          const validationResult = input as any;
+          const user = validationResult.validatedUser;
 
-            return {
-              processedUser: {
-                ...user,
-                displayName: `${user.name} (${user.age} years old)`,
-                category: user.age >= 18 ? "adult" : "minor",
-              },
-              processingTimestamp: Date.now(),
-              validationTimestamp: validationResult.validationTimestamp,
-            };
-          }),
-      );
+          return {
+            processedUser: {
+              ...user,
+              displayName: `${user.name} (${user.age} years old)`,
+              category: user.age >= 18 ? "adult" : "minor",
+            },
+            processingTimestamp: Date.now(),
+            validationTimestamp: validationResult.validationTimestamp,
+          };
+        })
+        .build();
 
       // Test successful validation chain
       const userData = { name: "Alice", age: 25 };
@@ -108,86 +104,80 @@ describe("Component Interactions", () => {
 
     it("should handle bind args validation across component interactions", async () => {
       // Component that validates and processes bind args
-      const bindArgsProcessor = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [
-              numberSchema,
-              simpleUserSchema,
-              stringSchema,
-            ] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [multiplier, user, operation] = bindArgs;
-            const text = input as string;
+      const bindArgsProcessor = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema, simpleUserSchema, stringSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [multiplier, user, operation] = bindArgs;
+          const text = input as string;
 
-            let result: string;
-            switch (operation) {
-              case "repeat":
-                result = text.repeat(multiplier as number);
-                break;
-              case "prefix":
-                result = `${(user as any).name}: ${text}`;
-                break;
-              case "suffix":
-                result = `${text} - ${(user as any).name} (${(user as any).age})`;
-                break;
-              default:
-                result = text;
-            }
+          let result: string;
+          switch (operation) {
+            case "repeat":
+              result = text.repeat(multiplier as number);
+              break;
+            case "prefix":
+              result = `${(user as any).name}: ${text}`;
+              break;
+            case "suffix":
+              result = `${text} - ${(user as any).name} (${(user as any).age})`;
+              break;
+            default:
+              result = text;
+          }
 
-            return {
-              originalText: text,
-              processedText: result,
-              multiplier,
-              user,
-              operation,
-            };
-          }),
-      );
+          return {
+            originalText: text,
+            processedText: result,
+            multiplier,
+            user,
+            operation,
+          };
+        })
+        .build();
 
       // Component that uses the processed result
-      const resultConsumer = craft((action) =>
-        action
-          .schemas({
-            inputSchema: {
-              "~standard": {
-                version: 1,
-                vendor: "test",
-                validate: (input: unknown) => {
-                  if (
-                    typeof input === "object" &&
-                    input !== null &&
-                    "processedText" in input &&
-                    "operation" in input
-                  ) {
-                    return { value: input };
-                  }
-                  return {
-                    issues: [{ message: "Invalid processed result", path: [] }],
-                  };
-                },
+      const resultConsumer = actioncraft()
+        .schemas({
+          inputSchema: {
+            "~standard": {
+              version: 1,
+              vendor: "test",
+              validate: (input: unknown) => {
+                if (
+                  typeof input === "object" &&
+                  input !== null &&
+                  "processedText" in input &&
+                  "operation" in input
+                ) {
+                  return { value: input };
+                }
+                return {
+                  issues: [{ message: "Invalid processed result", path: [] }],
+                };
               },
-              "~validate": function (input: unknown) {
-                return this["~standard"].validate(input);
-              },
-            } as const,
-          })
-          .handler(async ({ input }) => {
-            const processed = input as any;
+            },
+            "~validate": function (input: unknown) {
+              return this["~standard"].validate(input);
+            },
+          } as const,
+        })
+        .handler(async ({ input }) => {
+          const processed = input as any;
 
-            return {
-              finalResult: processed.processedText.toUpperCase(),
-              metadata: {
-                originalOperation: processed.operation,
-                textLength: processed.processedText.length,
-                wasRepeated: processed.operation === "repeat",
-                involvedUser: processed.user.name,
-              },
-            };
-          }),
-      );
+          return {
+            finalResult: processed.processedText.toUpperCase(),
+            metadata: {
+              originalOperation: processed.operation,
+              textLength: processed.processedText.length,
+              wasRepeated: processed.operation === "repeat",
+              involvedUser: processed.user.name,
+            },
+          };
+        })
+        .build();
 
       // Test successful bind args processing chain
       const processorResult = await bindArgsProcessor(
@@ -227,84 +217,82 @@ describe("Component Interactions", () => {
 
     it("should handle output schema validation in component chains", async () => {
       // Component with strict output validation
-      const strictOutputAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: numberSchema,
-            outputSchema: {
-              "~standard": {
-                version: 1,
-                vendor: "test",
-                validate: (input: unknown) => {
-                  if (
-                    typeof input === "object" &&
-                    input !== null &&
-                    "value" in input &&
-                    "isPositive" in input &&
-                    typeof (input as any).value === "number" &&
-                    typeof (input as any).isPositive === "boolean"
-                  ) {
-                    return { value: input };
-                  }
-                  return {
-                    issues: [{ message: "Invalid output format", path: [] }],
-                  };
-                },
+      const strictOutputAction = actioncraft()
+        .schemas({
+          inputSchema: numberSchema,
+          outputSchema: {
+            "~standard": {
+              version: 1,
+              vendor: "test",
+              validate: (input: unknown) => {
+                if (
+                  typeof input === "object" &&
+                  input !== null &&
+                  "value" in input &&
+                  "isPositive" in input &&
+                  typeof (input as any).value === "number" &&
+                  typeof (input as any).isPositive === "boolean"
+                ) {
+                  return { value: input };
+                }
+                return {
+                  issues: [{ message: "Invalid output format", path: [] }],
+                };
               },
-              "~validate": function (input: unknown) {
-                return this["~standard"].validate(input);
-              },
-            } as const,
-          })
-          .handler(async ({ input }) => {
-            const num = input as number;
-            return {
-              value: Math.abs(num),
-              isPositive: num >= 0,
-            };
-          }),
-      );
+            },
+            "~validate": function (input: unknown) {
+              return this["~standard"].validate(input);
+            },
+          } as const,
+        })
+        .handler(async ({ input }) => {
+          const num = input as number;
+          return {
+            value: Math.abs(num),
+            isPositive: num >= 0,
+          };
+        })
+        .build();
 
       // Component that consumes validated output
-      const outputConsumer = craft((action) =>
-        action
-          .schemas({
-            inputSchema: {
-              "~standard": {
-                version: 1,
-                vendor: "test",
-                validate: (input: unknown) => {
-                  if (
-                    typeof input === "object" &&
-                    input !== null &&
-                    "success" in input
-                  ) {
-                    return { value: input };
-                  }
-                  return {
-                    issues: [{ message: "Expected action result", path: [] }],
-                  };
-                },
+      const outputConsumer = actioncraft()
+        .schemas({
+          inputSchema: {
+            "~standard": {
+              version: 1,
+              vendor: "test",
+              validate: (input: unknown) => {
+                if (
+                  typeof input === "object" &&
+                  input !== null &&
+                  "success" in input
+                ) {
+                  return { value: input };
+                }
+                return {
+                  issues: [{ message: "Expected action result", path: [] }],
+                };
               },
-              "~validate": function (input: unknown) {
-                return this["~standard"].validate(input);
-              },
-            } as const,
-          })
-          .handler(async ({ input }) => {
-            const result = input as any;
-            if (!result.success) {
-              throw new Error("Cannot process failed result");
-            }
+            },
+            "~validate": function (input: unknown) {
+              return this["~standard"].validate(input);
+            },
+          } as const,
+        })
+        .handler(async ({ input }) => {
+          const result = input as any;
+          if (!result.success) {
+            throw new Error("Cannot process failed result");
+          }
 
-            const data = result.data;
-            return {
-              consumedValue: data.value * 2,
-              wasPositive: data.isPositive,
-              processingChain: "output-validated",
-            };
-          }),
-      );
+          const data = result.data;
+          return {
+            consumedValue: data.value * 2,
+            wasPositive: data.isPositive,
+            processingChain: "output-validated",
+          };
+        })
+        .build();
 
       // Test successful output validation chain
       const strictResult = await strictOutputAction(42);
@@ -334,40 +322,38 @@ describe("Component Interactions", () => {
       };
 
       // Component with base config
-      const baseComponent = craft((action) =>
-        action
-          .config(baseConfig)
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            if (input === "throw") {
-              throw new Error("Base component error");
-            }
-            return `base-${input}`;
-          }),
-      );
+      const baseComponent = actioncraft()
+        .config(baseConfig)
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          if (input === "throw") {
+            throw new Error("Base component error");
+          }
+          return `base-${input}`;
+        })
+        .build();
 
       // Component that overrides some config
-      const overrideComponent = craft((action) =>
-        action
-          .config({
-            ...baseConfig,
-            resultFormat: "functional" as const,
-            handleThrownError: (error: unknown) =>
-              ({
-                type: "OVERRIDE_ERROR",
-                message:
-                  error instanceof Error ? error.message : "Override error",
-                source: "override-component",
-              }) as const,
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            if (input === "throw") {
-              throw new Error("Override component error");
-            }
-            return `override-${input}`;
-          }),
-      );
+      const overrideComponent = actioncraft()
+        .config({
+          ...baseConfig,
+          resultFormat: "functional" as const,
+          handleThrownError: (error: unknown) =>
+            ({
+              type: "OVERRIDE_ERROR",
+              message:
+                error instanceof Error ? error.message : "Override error",
+              source: "override-component",
+            }) as const,
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          if (input === "throw") {
+            throw new Error("Override component error");
+          }
+          return `override-${input}`;
+        })
+        .build();
 
       // Test base component behavior
       const baseResult = await baseComponent("test");
@@ -418,20 +404,19 @@ describe("Component Interactions", () => {
         name: string,
         additionalCallbacks = {},
       ) =>
-        craft((action) =>
-          action
-            .schemas({ inputSchema: stringSchema })
-            .handler(async ({ input }) => {
-              if (input === "error") {
-                throw new Error(`${name} error`);
-              }
-              return `${name}-${input}`;
-            })
-            .callbacks({
-              ...baseCallbacks,
-              ...additionalCallbacks,
-            }),
-        );
+        actioncraft()
+          .schemas({ inputSchema: stringSchema })
+          .handler(async ({ input }) => {
+            if (input === "error") {
+              throw new Error(`${name} error`);
+            }
+            return `${name}-${input}`;
+          })
+          .callbacks({
+            ...baseCallbacks,
+            ...additionalCallbacks,
+          })
+          .build();
 
       const component1 = createComponentWithCallbacks("comp1");
       const component2 = createComponentWithCallbacks("comp2", {
@@ -461,30 +446,28 @@ describe("Component Interactions", () => {
 
     it("should handle useActionState configuration across components", async () => {
       // Component with useActionState enabled
-      const statefulComponent = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input, metadata }) => {
-            return {
-              input: input as string,
-              hadPrevState: !!metadata.prevState,
-              prevData: metadata.prevState?.success
-                ? metadata.prevState.data
-                : null,
-              timestamp: Date.now(),
-            };
-          }),
-      );
+      const statefulComponent = actioncraft()
+        .config({ useActionState: true })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input, metadata }) => {
+          return {
+            input: input as string,
+            hadPrevState: !!metadata.prevState,
+            prevData: metadata.prevState?.success
+              ? metadata.prevState.data
+              : null,
+            timestamp: Date.now(),
+          };
+        })
+        .build();
 
       // Component without useActionState (regular)
-      const regularComponent = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            return `regular-${input}`;
-          }),
-      );
+      const regularComponent = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          return `regular-${input}`;
+        })
+        .build();
 
       // Test stateful component
       const initialState = initial(statefulComponent);
@@ -521,68 +504,66 @@ describe("Component Interactions", () => {
   describe("Error handling across component boundaries", () => {
     it("should handle error transformation and propagation", async () => {
       // Error transformer component
-      const errorTransformer = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            transformedError: (originalType: string, originalMessage: string) =>
-              ({
-                type: "TRANSFORMED_ERROR",
-                originalType,
-                originalMessage,
-                transformedBy: "error-transformer",
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            // Simulate calling another component that might fail
-            const result = await errorProducerComponent(input);
+      const errorTransformer = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          transformedError: (originalType: string, originalMessage: string) =>
+            ({
+              type: "TRANSFORMED_ERROR",
+              originalType,
+              originalMessage,
+              transformedBy: "error-transformer",
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          // Simulate calling another component that might fail
+          const result = await errorProducerComponent(input);
 
-            if (!result.success) {
-              const originalError = result.error as any;
-              return errors.transformedError(
-                originalError.type,
-                originalError.message || "Unknown error",
-              );
-            }
+          if (!result.success) {
+            const originalError = result.error as any;
+            return errors.transformedError(
+              originalError.type,
+              originalError.message || "Unknown error",
+            );
+          }
 
-            return {
-              transformed: true,
-              originalData: result.data,
-              transformationTime: Date.now(),
-            };
-          }),
-      );
+          return {
+            transformed: true,
+            originalData: result.data,
+            transformationTime: Date.now(),
+          };
+        })
+        .build();
 
       // Error producer component
-      const errorProducerComponent = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            validationFailed: (input: string) =>
-              ({
-                type: "VALIDATION_FAILED",
-                input,
-                message: "Input validation failed",
-              }) as const,
-            processingFailed: (reason: string) =>
-              ({
-                type: "PROCESSING_FAILED",
-                reason,
-                message: "Processing operation failed",
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            if (input === "invalid") {
-              return errors.validationFailed(input as string);
-            }
+      const errorProducerComponent = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          validationFailed: (input: string) =>
+            ({
+              type: "VALIDATION_FAILED",
+              input,
+              message: "Input validation failed",
+            }) as const,
+          processingFailed: (reason: string) =>
+            ({
+              type: "PROCESSING_FAILED",
+              reason,
+              message: "Processing operation failed",
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          if (input === "invalid") {
+            return errors.validationFailed(input as string);
+          }
 
-            if (input === "process-error") {
-              return errors.processingFailed("simulated-failure");
-            }
+          if (input === "process-error") {
+            return errors.processingFailed("simulated-failure");
+          }
 
-            return `processed-${input}`;
-          }),
-      );
+          return `processed-${input}`;
+        })
+        .build();
 
       // Test successful transformation
       const successResult = await errorTransformer("valid");
@@ -623,68 +604,66 @@ describe("Component Interactions", () => {
       let attemptCount = 0;
 
       // Retry coordinator component
-      const retryCoordinator = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            maxRetriesExceeded: (attempts: number, lastError: unknown) =>
-              ({
-                type: "MAX_RETRIES_EXCEEDED",
-                attempts,
-                lastError,
-                suggestion: "Check system status and try again later",
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            const maxRetries = 3;
-            let lastError: unknown = null;
+      const retryCoordinator = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          maxRetriesExceeded: (attempts: number, lastError: unknown) =>
+            ({
+              type: "MAX_RETRIES_EXCEEDED",
+              attempts,
+              lastError,
+              suggestion: "Check system status and try again later",
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          const maxRetries = 3;
+          let lastError: unknown = null;
 
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-              attemptCount = attempt;
-              const result = await unreliableComponent(input);
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            attemptCount = attempt;
+            const result = await unreliableComponent(input);
 
-              if (result.success) {
-                return {
-                  data: result.data,
-                  attempts: attempt,
-                  recovered: attempt > 1,
-                  totalAttempts: attemptCount,
-                };
-              }
-
-              lastError = result.error;
-
-              // Wait before retry (except on last attempt)
-              if (attempt < maxRetries) {
-                await new Promise((resolve) => setTimeout(resolve, 10));
-              }
+            if (result.success) {
+              return {
+                data: result.data,
+                attempts: attempt,
+                recovered: attempt > 1,
+                totalAttempts: attemptCount,
+              };
             }
 
-            return errors.maxRetriesExceeded(maxRetries, lastError);
-          }),
-      );
+            lastError = result.error;
+
+            // Wait before retry (except on last attempt)
+            if (attempt < maxRetries) {
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+          }
+
+          return errors.maxRetriesExceeded(maxRetries, lastError);
+        })
+        .build();
 
       // Unreliable component that fails first few times
-      const unreliableComponent = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            temporaryFailure: (attempt: number) =>
-              ({
-                type: "TEMPORARY_FAILURE",
-                attempt,
-                message: `Temporary failure on attempt ${attempt}`,
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            // Fail on first 2 attempts, succeed on 3rd
-            if (attemptCount < 3) {
-              return errors.temporaryFailure(attemptCount);
-            }
+      const unreliableComponent = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          temporaryFailure: (attempt: number) =>
+            ({
+              type: "TEMPORARY_FAILURE",
+              attempt,
+              message: `Temporary failure on attempt ${attempt}`,
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          // Fail on first 2 attempts, succeed on 3rd
+          if (attemptCount < 3) {
+            return errors.temporaryFailure(attemptCount);
+          }
 
-            return `success-after-retries-${input}`;
-          }),
-      );
+          return `success-after-retries-${input}`;
+        })
+        .build();
 
       // Test successful recovery
       attemptCount = 0;
@@ -698,50 +677,48 @@ describe("Component Interactions", () => {
 
       // Test max retries exceeded (reset attempt count to simulate persistent failure)
       attemptCount = 0;
-      const persistentFailureComponent = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            persistentFailure: () =>
-              ({
-                type: "PERSISTENT_FAILURE",
-                message: "This always fails",
-              }) as const,
-          })
-          .handler(async ({ errors }) => {
-            return errors.persistentFailure();
-          }),
-      );
+      const persistentFailureComponent = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          persistentFailure: () =>
+            ({
+              type: "PERSISTENT_FAILURE",
+              message: "This always fails",
+            }) as const,
+        })
+        .handler(async ({ errors }) => {
+          return errors.persistentFailure();
+        })
+        .build();
 
       // Create a coordinator that uses the persistent failure component
-      const persistentRetryCoordinator = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            maxRetriesExceeded: (attempts: number, lastError: unknown) =>
-              ({
-                type: "MAX_RETRIES_EXCEEDED",
-                attempts,
-                lastError,
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            const maxRetries = 3;
-            let lastError: unknown = null;
+      const persistentRetryCoordinator = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          maxRetriesExceeded: (attempts: number, lastError: unknown) =>
+            ({
+              type: "MAX_RETRIES_EXCEEDED",
+              attempts,
+              lastError,
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          const maxRetries = 3;
+          let lastError: unknown = null;
 
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-              const result = await persistentFailureComponent(input);
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            const result = await persistentFailureComponent(input);
 
-              if (result.success) {
-                return result.data;
-              }
-
-              lastError = result.error;
+            if (result.success) {
+              return result.data;
             }
 
-            return errors.maxRetriesExceeded(maxRetries, lastError);
-          }),
-      );
+            lastError = result.error;
+          }
+
+          return errors.maxRetriesExceeded(maxRetries, lastError);
+        })
+        .build();
 
       const maxRetriesResult = await persistentRetryCoordinator("test");
       expect(maxRetriesResult.success).toBe(false);
@@ -756,53 +733,51 @@ describe("Component Interactions", () => {
 
   describe("Action ID and metadata propagation", () => {
     it("should maintain action IDs across component interactions", async () => {
-      const component1 = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input, metadata }) => {
-            return {
-              data: `comp1-${input}`,
-              actionId: metadata.actionId,
-              timestamp: Date.now(),
-            };
-          }),
-      );
+      const component1 = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input, metadata }) => {
+          return {
+            data: `comp1-${input}`,
+            actionId: metadata.actionId,
+            timestamp: Date.now(),
+          };
+        })
+        .build();
 
-      const component2 = craft((action) =>
-        action
-          .schemas({
-            inputSchema: {
-              "~standard": {
-                version: 1,
-                vendor: "test",
-                validate: (input: unknown) => {
-                  if (
-                    typeof input === "object" &&
-                    input !== null &&
-                    "success" in input
-                  ) {
-                    return { value: input };
-                  }
-                  return {
-                    issues: [{ message: "Expected action result", path: [] }],
-                  };
-                },
+      const component2 = actioncraft()
+        .schemas({
+          inputSchema: {
+            "~standard": {
+              version: 1,
+              vendor: "test",
+              validate: (input: unknown) => {
+                if (
+                  typeof input === "object" &&
+                  input !== null &&
+                  "success" in input
+                ) {
+                  return { value: input };
+                }
+                return {
+                  issues: [{ message: "Expected action result", path: [] }],
+                };
               },
-              "~validate": function (input: unknown) {
-                return this["~standard"].validate(input);
-              },
-            } as const,
-          })
-          .handler(async ({ input, metadata }) => {
-            const result = input as any;
-            return {
-              data: `comp2-processed`,
-              originalData: result.success ? result.data : null,
-              originalActionId: result.success ? result.data.actionId : null,
-              currentActionId: metadata.actionId,
-            };
-          }),
-      );
+            },
+            "~validate": function (input: unknown) {
+              return this["~standard"].validate(input);
+            },
+          } as const,
+        })
+        .handler(async ({ input, metadata }) => {
+          const result = input as any;
+          return {
+            data: `comp2-processed`,
+            originalData: result.success ? result.data : null,
+            originalActionId: result.success ? result.data.actionId : null,
+            currentActionId: metadata.actionId,
+          };
+        })
+        .build();
 
       const result1 = await component1("test");
       expect(result1.success).toBe(true);
@@ -828,28 +803,27 @@ describe("Component Interactions", () => {
     });
 
     it("should handle metadata propagation in useActionState workflows", async () => {
-      const metadataTracker = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input, metadata }) => {
-            return {
-              input: input as string,
-              metadata: {
-                actionId: metadata.actionId,
-                rawInput: metadata.rawInput,
-                prevState: metadata.prevState
-                  ? {
-                      success: metadata.prevState.success,
-                      hasData:
-                        metadata.prevState.success && !!metadata.prevState.data,
-                    }
-                  : null,
-              },
-              timestamp: Date.now(),
-            };
-          }),
-      );
+      const metadataTracker = actioncraft()
+        .config({ useActionState: true })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input, metadata }) => {
+          return {
+            input: input as string,
+            metadata: {
+              actionId: metadata.actionId,
+              rawInput: metadata.rawInput,
+              prevState: metadata.prevState
+                ? {
+                    success: metadata.prevState.success,
+                    hasData:
+                      metadata.prevState.success && !!metadata.prevState.data,
+                  }
+                : null,
+            },
+            timestamp: Date.now(),
+          };
+        })
+        .build();
 
       const actionId = getActionId(metadataTracker);
 

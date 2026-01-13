@@ -1,4 +1,4 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import type {
   InferInput,
   InferResult,
@@ -10,28 +10,25 @@ import {
   numberSchema,
   userSchema,
 } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 describe("TypeScript Type Inference", () => {
   describe("Input type inference", () => {
     it("should infer correct input types from schemas", () => {
-      const stringAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const stringAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
-      const numberAction = craft((action) =>
-        action
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => input),
-      );
+      const numberAction = actioncraft()
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
-      const userAction = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const userAction = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       // Type assertions to verify inference
       type StringInput = InferInput<typeof stringAction>;
@@ -53,9 +50,9 @@ describe("TypeScript Type Inference", () => {
     });
 
     it("should infer unknown for handlers without input schema", () => {
-      const noInputAction = craft((action) =>
-        action.handler(async () => "no input"),
-      );
+      const noInputAction = actioncraft()
+        .handler(async () => "no input")
+        .build();
 
       type NoInputType = InferInput<typeof noInputAction>;
 
@@ -66,23 +63,22 @@ describe("TypeScript Type Inference", () => {
   });
   describe("Result type inference", () => {
     it("should infer correct result types for api format", () => {
-      const action = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            customError: (message: string) =>
-              ({
-                type: "CUSTOM_ERROR" as const,
-                message,
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            if (input === "error") {
-              return errors.customError("Test error");
-            }
-            return { processed: input.toUpperCase() };
-          }),
-      );
+      const action = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          customError: (message: string) =>
+            ({
+              type: "CUSTOM_ERROR" as const,
+              message,
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          if (input === "error") {
+            return errors.customError("Test error");
+          }
+          return { processed: input.toUpperCase() };
+        })
+        .build();
 
       type ActionResult = InferResult<typeof action>;
 
@@ -104,26 +100,25 @@ describe("TypeScript Type Inference", () => {
     });
 
     it("should infer correct result types for functional format", () => {
-      const action = craft((action) =>
-        action
-          .config({
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: numberSchema })
-          .errors({
-            negative: (value: number) =>
-              ({
-                type: "NEGATIVE_ERROR" as const,
-                value,
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            if (input < 0) {
-              return errors.negative(input);
-            }
-            return Math.sqrt(input);
-          }),
-      );
+      const action = actioncraft()
+        .config({
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: numberSchema })
+        .errors({
+          negative: (value: number) =>
+            ({
+              type: "NEGATIVE_ERROR" as const,
+              value,
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          if (input < 0) {
+            return errors.negative(input);
+          }
+          return Math.sqrt(input);
+        })
+        .build();
 
       type ActionResult = InferResult<typeof action>;
 
@@ -146,19 +141,18 @@ describe("TypeScript Type Inference", () => {
   });
   describe("Data type inference", () => {
     it("should infer correct data types from handler implementations", () => {
-      const simpleAction = craft((action) =>
-        action.handler(async () => "simple string"),
-      );
+      const simpleAction = actioncraft()
+        .handler(async () => "simple string")
+        .build();
 
-      const complexAction = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => ({
-            user: input,
-            timestamp: Date.now(),
-            metadata: { processed: true, version: 1 },
-          })),
-      );
+      const complexAction = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => ({
+          user: input,
+          timestamp: Date.now(),
+          metadata: { processed: true, version: 1 },
+        }))
+        .build();
 
       type SimpleData = InferData<typeof simpleAction>;
       type ComplexData = InferData<typeof complexAction>;
@@ -177,16 +171,15 @@ describe("TypeScript Type Inference", () => {
     });
 
     it("should handle union return types", () => {
-      const unionAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => {
-            if (input.startsWith("num:")) {
-              return parseInt(input.slice(4), 10) as string | number;
-            }
-            return input.toUpperCase() as string | number;
-          }),
-      );
+      const unionAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => {
+          if (input.startsWith("num:")) {
+            return parseInt(input.slice(4), 10) as string | number;
+          }
+          return input.toUpperCase() as string | number;
+        })
+        .build();
 
       type UnionData = InferData<typeof unionAction>;
 
@@ -200,41 +193,40 @@ describe("TypeScript Type Inference", () => {
   });
   describe("Error type inference", () => {
     it("should infer all possible error types", () => {
-      const multiErrorAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .errors({
-            validation: (field: string, value: unknown) =>
-              ({
-                type: "VALIDATION_ERROR" as const,
-                field,
-                value,
-              }) as const,
-            notFound: (id: string) =>
-              ({
-                type: "NOT_FOUND" as const,
-                id,
-                message: "Resource not found",
-              }) as const,
-            unauthorized: () =>
-              ({
-                type: "UNAUTHORIZED" as const,
-                code: 401,
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            if (input === "invalid") {
-              return errors.validation("input", input);
-            }
-            if (input === "missing") {
-              return errors.notFound(input);
-            }
-            if (input === "forbidden") {
-              return errors.unauthorized();
-            }
-            return input;
-          }),
-      );
+      const multiErrorAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .errors({
+          validation: (field: string, value: unknown) =>
+            ({
+              type: "VALIDATION_ERROR" as const,
+              field,
+              value,
+            }) as const,
+          notFound: (id: string) =>
+            ({
+              type: "NOT_FOUND" as const,
+              id,
+              message: "Resource not found",
+            }) as const,
+          unauthorized: () =>
+            ({
+              type: "UNAUTHORIZED" as const,
+              code: 401,
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          if (input === "invalid") {
+            return errors.validation("input", input);
+          }
+          if (input === "missing") {
+            return errors.notFound(input);
+          }
+          if (input === "forbidden") {
+            return errors.unauthorized();
+          }
+          return input;
+        })
+        .build();
 
       type ErrorTypes = InferErrors<typeof multiErrorAction>;
 
@@ -259,8 +251,7 @@ describe("TypeScript Type Inference", () => {
       const inputValidationError: ErrorTypes = {
         type: "INPUT_VALIDATION",
         message: "Input validation failed",
-        issues: [],
-      };
+      } as ErrorTypes;
 
       const unhandledError: ErrorTypes = {
         type: "UNHANDLED",
@@ -274,23 +265,21 @@ describe("TypeScript Type Inference", () => {
       expect(unhandledError.type).toBe("UNHANDLED");
     });
     it("should infer validation error formats correctly", () => {
-      const nestedErrorAction = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "nested",
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const nestedErrorAction = actioncraft()
+        .config({
+          validationErrorFormat: "nested",
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
-      const flattenedErrorAction = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "flattened",
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const flattenedErrorAction = actioncraft()
+        .config({
+          validationErrorFormat: "flattened",
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       type NestedErrorTypes = InferErrors<typeof nestedErrorAction>;
       type FlattenedErrorTypes = InferErrors<typeof flattenedErrorAction>;
@@ -316,54 +305,50 @@ describe("TypeScript Type Inference", () => {
   });
   describe("Complex action chain inference", () => {
     it("should maintain type safety through entire fluent chain", () => {
-      const complexAction = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "flattened",
-            resultFormat: "api",
-          })
-          .schemas({
-            inputSchema: userSchema,
-            outputSchema: stringSchema,
-            bindSchemas: [numberSchema] as const,
-          })
-          .errors({
-            businessLogic: (code: number, message: string) =>
-              ({
-                type: "BUSINESS_LOGIC_ERROR" as const,
-                code,
-                message,
-                timestamp: Date.now(),
-              }) as const,
-          })
-          .handler(async ({ input, bindArgs, errors }) => {
-            const [multiplier] = bindArgs;
+      const complexAction = actioncraft()
+        .config({
+          validationErrorFormat: "flattened",
+          resultFormat: "api",
+        })
+        .schemas({
+          inputSchema: userSchema,
+          outputSchema: stringSchema,
+          bindSchemas: [numberSchema] as const,
+        })
+        .errors({
+          businessLogic: (code: number, message: string) =>
+            ({
+              type: "BUSINESS_LOGIC_ERROR" as const,
+              code,
+              message,
+              timestamp: Date.now(),
+            }) as const,
+        })
+        .handler(async ({ input, bindArgs, errors }) => {
+          const [multiplier] = bindArgs;
 
-            if (input.age * multiplier > 1000) {
-              return errors.businessLogic(
-                400,
-                "Age multiplier result too large",
-              );
-            }
+          if (input.age * multiplier > 1000) {
+            return errors.businessLogic(400, "Age multiplier result too large");
+          }
 
-            return `${input.name} (age: ${input.age * multiplier})`;
-          })
-          .callbacks({
-            onSuccess: ({ data, metadata }) => {
-              // These types should be correctly inferred
-              expect(typeof data).toBe("string");
-              expect(metadata.validatedInput?.name).toBeDefined();
-              expect(metadata.validatedBindArgs?.[0]).toBeTypeOf("number");
-            },
-            onError: ({ error, metadata }) => {
-              // Error types should be correctly inferred
-              expect(error.type).toMatch(
-                /BUSINESS_LOGIC_ERROR|INPUT_VALIDATION|BIND_ARGS_VALIDATION|UNHANDLED/,
-              );
-              expect(metadata.rawInput).toBeDefined();
-            },
-          }),
-      );
+          return `${input.name} (age: ${input.age * multiplier})`;
+        })
+        .callbacks({
+          onSuccess: ({ data, metadata }) => {
+            // These types should be correctly inferred
+            expect(typeof data).toBe("string");
+            expect(metadata.validatedInput?.name).toBeDefined();
+            expect(metadata.validatedBindArgs?.[0]).toBeTypeOf("number");
+          },
+          onError: ({ error, metadata }) => {
+            // Error types should be correctly inferred
+            expect(error.type).toMatch(
+              /BUSINESS_LOGIC_ERROR|INPUT_VALIDATION|BIND_ARGS_VALIDATION|UNHANDLED/,
+            );
+            expect(metadata.rawInput).toBeDefined();
+          },
+        })
+        .build();
 
       // All types should be correctly inferred
       type Input = InferInput<typeof complexAction>;
@@ -410,38 +395,37 @@ describe("TypeScript Type Inference", () => {
       expect(businessError.type).toBe("BUSINESS_LOGIC_ERROR");
     });
     it("should handle useActionState type inference", () => {
-      const actionStateAction = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema] as const,
-          })
-          .errors({
-            stateError: (step: string) =>
-              ({
-                type: "STATE_ERROR" as const,
-                step,
-              }) as const,
-          })
-          .handler(async ({ input, bindArgs, metadata, errors }) => {
-            const [count] = bindArgs;
+      const actionStateAction = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema] as const,
+        })
+        .errors({
+          stateError: (step: string) =>
+            ({
+              type: "STATE_ERROR" as const,
+              step,
+            }) as const,
+        })
+        .handler(async ({ input, bindArgs, metadata, errors }) => {
+          const [count] = bindArgs;
 
-            // Previous state should be correctly typed
-            if (metadata.prevState?.success) {
-              const prevData = metadata.prevState.data;
-              expect(typeof prevData).toBe("string");
-            }
+          // Previous state should be correctly typed
+          if (metadata.prevState?.success) {
+            const prevData = metadata.prevState.data;
+            expect(typeof prevData).toBe("string");
+          }
 
-            if (count > 10) {
-              return errors.stateError("validation");
-            }
+          if (count > 10) {
+            return errors.stateError("validation");
+          }
 
-            return input.repeat(count);
-          }),
-      );
+          return input.repeat(count);
+        })
+        .build();
 
       type ActionResult = InferResult<typeof actionStateAction>;
 
@@ -456,14 +440,13 @@ describe("TypeScript Type Inference", () => {
     });
 
     it("should infer StatefulApiResult with values for useActionState", () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input.toUpperCase()),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input.toUpperCase())
+        .build();
 
       type Res = InferResult<typeof action>;
 
@@ -478,15 +461,14 @@ describe("TypeScript Type Inference", () => {
       expect(resultWithValues.values).toBe("HELLO");
     });
     it("should infer StatefulApiResult even when resultFormat is functional", () => {
-      const action = craft((action) =>
-        action
-          .config({
-            useActionState: true,
-            resultFormat: "functional",
-          })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const action = actioncraft()
+        .config({
+          useActionState: true,
+          resultFormat: "functional",
+        })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       type Res = InferResult<typeof action>;
 
@@ -503,23 +485,22 @@ describe("TypeScript Type Inference", () => {
   });
   describe("$Infer pattern", () => {
     it("should provide equivalent types to traditional inference utilities", () => {
-      const testAction = craft((action) =>
-        action
-          .schemas({ inputSchema: userSchema })
-          .errors({
-            customError: (message: string) =>
-              ({
-                type: "CUSTOM_ERROR" as const,
-                message,
-              }) as const,
-          })
-          .handler(async ({ input, errors }) => {
-            if (input.age < 0) {
-              return errors.customError("Invalid age");
-            }
-            return { processedUser: input, timestamp: Date.now() };
-          }),
-      );
+      const testAction = actioncraft()
+        .schemas({ inputSchema: userSchema })
+        .errors({
+          customError: (message: string) =>
+            ({
+              type: "CUSTOM_ERROR" as const,
+              message,
+            }) as const,
+        })
+        .handler(async ({ input, errors }) => {
+          if (input.age < 0) {
+            return errors.customError("Invalid age");
+          }
+          return { processedUser: input, timestamp: Date.now() };
+        })
+        .build();
 
       // Traditional approach
       type TraditionalInput = InferInput<typeof testAction>;
@@ -573,12 +554,11 @@ describe("TypeScript Type Inference", () => {
 
     it("should work with all configuration variants", () => {
       // Test functional result format
-      const functionalAction = craft((action) =>
-        action
-          .config({ resultFormat: "functional" })
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input.toUpperCase()),
-      );
+      const functionalAction = actioncraft()
+        .config({ resultFormat: "functional" })
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input.toUpperCase())
+        .build();
 
       type FunctionalResult = typeof functionalAction.$Infer.Result;
       const functionalResult: FunctionalResult = {
@@ -589,12 +569,11 @@ describe("TypeScript Type Inference", () => {
       expect(functionalResult.type).toBe("ok");
 
       // Test useActionState
-      const stateAction = craft((action) =>
-        action
-          .config({ useActionState: true })
-          .schemas({ inputSchema: numberSchema })
-          .handler(async ({ input }) => input * 2),
-      );
+      const stateAction = actioncraft()
+        .config({ useActionState: true })
+        .schemas({ inputSchema: numberSchema })
+        .handler(async ({ input }) => input * 2)
+        .build();
 
       type StateResult = typeof stateAction.$Infer.Result;
       const stateResult: StateResult = {
@@ -606,12 +585,11 @@ describe("TypeScript Type Inference", () => {
       expect(stateResult.success).toBe(true);
 
       // Test nested validation error format
-      const nestedValidationAction = craft((action) =>
-        action
-          .config({ validationErrorFormat: "nested" })
-          .schemas({ inputSchema: userSchema })
-          .handler(async ({ input }) => input),
-      );
+      const nestedValidationAction = actioncraft()
+        .config({ validationErrorFormat: "nested" })
+        .schemas({ inputSchema: userSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       type NestedErrors = typeof nestedValidationAction.$Infer.Errors;
       const nestedError: NestedErrors = {
@@ -623,43 +601,42 @@ describe("TypeScript Type Inference", () => {
       expect(nestedError.type).toBe("INPUT_VALIDATION");
     });
     it("should work with complex action chains", () => {
-      const complexAction = craft((action) =>
-        action
-          .config({
-            validationErrorFormat: "flattened",
-            resultFormat: "api",
-          })
-          .schemas({
-            inputSchema: userSchema,
-            bindSchemas: [stringSchema, numberSchema] as const,
-          })
-          .errors({
-            businessError: (code: number) =>
-              ({
-                type: "BUSINESS_ERROR" as const,
-                code,
-                details: { timestamp: Date.now() },
-              }) as const,
-            validationError: (field: string) =>
-              ({
-                type: "FIELD_VALIDATION" as const,
-                field,
-              }) as const,
-          })
-          .handler(async ({ input, bindArgs, errors }) => {
-            const [prefix, multiplier] = bindArgs;
+      const complexAction = actioncraft()
+        .config({
+          validationErrorFormat: "flattened",
+          resultFormat: "api",
+        })
+        .schemas({
+          inputSchema: userSchema,
+          bindSchemas: [stringSchema, numberSchema] as const,
+        })
+        .errors({
+          businessError: (code: number) =>
+            ({
+              type: "BUSINESS_ERROR" as const,
+              code,
+              details: { timestamp: Date.now() },
+            }) as const,
+          validationError: (field: string) =>
+            ({
+              type: "FIELD_VALIDATION" as const,
+              field,
+            }) as const,
+        })
+        .handler(async ({ input, bindArgs, errors }) => {
+          const [prefix, multiplier] = bindArgs;
 
-            if (input.age * multiplier > 200) {
-              return errors.businessError(400);
-            }
+          if (input.age * multiplier > 200) {
+            return errors.businessError(400);
+          }
 
-            return {
-              result: `${prefix}: ${input.name}`,
-              calculatedAge: input.age * multiplier,
-              metadata: { processed: true },
-            };
-          }),
-      );
+          return {
+            result: `${prefix}: ${input.name}`,
+            calculatedAge: input.age * multiplier,
+            metadata: { processed: true },
+          };
+        })
+        .build();
 
       // All $Infer types should work correctly
       type ComplexInput = typeof complexAction.$Infer.Input;
@@ -708,9 +685,9 @@ describe("TypeScript Type Inference", () => {
       expect(validationError.type).toBe("INPUT_VALIDATION");
     });
     it("should maintain type safety with no schemas", () => {
-      const noSchemaAction = craft((action) =>
-        action.handler(async () => "simple result"),
-      );
+      const noSchemaAction = actioncraft()
+        .handler(async () => "simple result")
+        .build();
 
       type NoSchemaInput = typeof noSchemaAction.$Infer.Input;
       type NoSchemaData = typeof noSchemaAction.$Infer.Data;
@@ -730,20 +707,19 @@ describe("TypeScript Type Inference", () => {
     });
 
     it("should work with bind schemas", () => {
-      const bindAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            bindSchemas: [numberSchema, userSchema] as const,
-          })
-          .handler(async ({ input, bindArgs }) => {
-            const [count, user] = bindArgs;
-            return {
-              message: input.repeat(count),
-              user: user.name,
-            };
-          }),
-      );
+      const bindAction = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          bindSchemas: [numberSchema, userSchema] as const,
+        })
+        .handler(async ({ input, bindArgs }) => {
+          const [count, user] = bindArgs;
+          return {
+            message: input.repeat(count),
+            user: user.name,
+          };
+        })
+        .build();
 
       type BindData = typeof bindAction.$Infer.Data;
       const data: BindData = {
@@ -757,14 +733,13 @@ describe("TypeScript Type Inference", () => {
   });
   describe("Type inference edge cases", () => {
     it("should handle optional schemas correctly", () => {
-      const optionalOutputAction = craft((action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            // outputSchema is optional
-          })
-          .handler(async ({ input }) => input.length),
-      );
+      const optionalOutputAction = actioncraft()
+        .schemas({
+          inputSchema: stringSchema,
+          // outputSchema is optional
+        })
+        .handler(async ({ input }) => input.length)
+        .build();
 
       type Data = InferData<typeof optionalOutputAction>;
       const data: Data = 42;
@@ -773,11 +748,10 @@ describe("TypeScript Type Inference", () => {
     });
 
     it("should handle empty error definitions", () => {
-      const noErrorsAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => input),
-      );
+      const noErrorsAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => input)
+        .build();
 
       type Errors = InferErrors<typeof noErrorsAction>;
 
@@ -785,8 +759,7 @@ describe("TypeScript Type Inference", () => {
       const validationError: Errors = {
         type: "INPUT_VALIDATION",
         message: "Input validation failed",
-        issues: [],
-      };
+      } as Errors;
 
       const unhandledError: Errors = {
         type: "UNHANDLED",
@@ -798,25 +771,24 @@ describe("TypeScript Type Inference", () => {
     });
 
     it("should handle deeply nested return types", () => {
-      const deepNestedAction = craft((action) =>
-        action
-          .schemas({ inputSchema: stringSchema })
-          .handler(async ({ input }) => ({
-            level1: {
-              level2: {
-                level3: {
-                  level4: {
-                    value: input,
-                    metadata: {
-                      processed: true,
-                      timestamp: Date.now(),
-                    },
+      const deepNestedAction = actioncraft()
+        .schemas({ inputSchema: stringSchema })
+        .handler(async ({ input }) => ({
+          level1: {
+            level2: {
+              level3: {
+                level4: {
+                  value: input,
+                  metadata: {
+                    processed: true,
+                    timestamp: Date.now(),
                   },
                 },
               },
             },
-          })),
-      );
+          },
+        }))
+        .build();
 
       type DeepData = InferData<typeof deepNestedAction>;
 

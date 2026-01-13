@@ -1,19 +1,18 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import { describe, it, expect, vi } from "vitest";
 
 describe("Logger Configuration", () => {
   it("should be silent by default", async () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const action = craft((action) =>
-      action
-        .handler(async () => "success")
-        .callbacks({
-          onSuccess: () => {
-            throw new Error("Callback error");
-          },
-        }),
-    );
+    const action = actioncraft()
+      .handler(async () => "success")
+      .callbacks({
+        onSuccess: () => {
+          throw new Error("Callback error");
+        },
+      })
+      .build();
 
     await action();
 
@@ -29,9 +28,10 @@ describe("Logger Configuration", () => {
     };
 
     // First, let's verify the logger config is accepted without errors
-    const action = craft((action) =>
-      action.config({ logger: mockLogger }).handler(async () => "success"),
-    );
+    const action = actioncraft()
+      .config({ logger: mockLogger })
+      .handler(async () => "success")
+      .build();
 
     const result = await action();
     expect(result).toEqual({
@@ -48,9 +48,10 @@ describe("Logger Configuration", () => {
   it("should handle logger with missing methods gracefully", async () => {
     const mockLogger = {}; // Empty logger
 
-    const action = craft((action) =>
-      action.config({ logger: mockLogger }).handler(async () => "success"),
-    );
+    const action = actioncraft()
+      .config({ logger: mockLogger })
+      .handler(async () => "success")
+      .build();
 
     // Should not throw and should work normally
     const result = await action();
@@ -67,18 +68,17 @@ describe("Logger Configuration", () => {
       warn: vi.fn(),
     };
 
-    const action = craft((action) =>
-      action
-        .config({
-          logger: mockLogger,
-          handleThrownError: () => {
-            throw new Error("Error handler also throws");
-          },
-        })
-        .handler(async () => {
-          throw new Error("Primary error");
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        logger: mockLogger,
+        handleThrownError: () => {
+          throw new Error("Error handler also throws");
+        },
+      })
+      .handler(async () => {
+        throw new Error("Primary error");
+      })
+      .build();
 
     await action();
 
@@ -97,9 +97,10 @@ describe("Logger Configuration", () => {
       warn: undefined,
     };
 
-    const action = craft((action) =>
-      action.config({ logger: mockLogger }).handler(async () => "success"),
-    );
+    const action = actioncraft()
+      .config({ logger: mockLogger })
+      .handler(async () => "success")
+      .build();
 
     // Should not throw and should not attempt to call undefined methods
     const result = await action();
@@ -121,15 +122,14 @@ describe("Logger Configuration", () => {
       },
     };
 
-    const action = craft((action) =>
-      action
-        .config({
-          logger,
-          resultFormat: "api" as const,
-          validationErrorFormat: "flattened" as const,
-        })
-        .handler(async () => "success"),
-    );
+    const action = actioncraft()
+      .config({
+        logger,
+        resultFormat: "api" as const,
+        validationErrorFormat: "flattened" as const,
+      })
+      .handler(async () => "success")
+      .build();
 
     expect(action).toBeDefined();
     expect(typeof action).toBe("function");
@@ -138,16 +138,15 @@ describe("Logger Configuration", () => {
   it("should log callback errors via logger.error", async () => {
     const mockLogger = { error: vi.fn(), warn: vi.fn() };
 
-    const action = craft((action) =>
-      action
-        .config({ logger: mockLogger })
-        .handler(async () => "success")
-        .callbacks({
-          onSuccess: () => {
-            throw new Error("Callback failure");
-          },
-        }),
-    );
+    const action = actioncraft()
+      .config({ logger: mockLogger })
+      .handler(async () => "success")
+      .callbacks({
+        onSuccess: () => {
+          throw new Error("Callback failure");
+        },
+      })
+      .build();
 
     await action();
 

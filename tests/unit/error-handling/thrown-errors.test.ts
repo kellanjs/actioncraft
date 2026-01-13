@@ -1,6 +1,6 @@
-import { craft } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import { stringSchema } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 describe("Thrown Error Handling", () => {
   it("should handle thrown errors with a custom handler", async () => {
@@ -11,19 +11,18 @@ describe("Thrown Error Handling", () => {
         stack: error instanceof Error ? error.stack : undefined,
       }) as const;
 
-    const action = craft((action) =>
-      action
-        .config({
-          handleThrownError: customErrorHandler,
-        })
-        .schemas({ inputSchema: stringSchema })
-        .handler(async ({ input }) => {
-          if (input === "throw") {
-            throw new Error("Intentional test error");
-          }
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        handleThrownError: customErrorHandler,
+      })
+      .schemas({ inputSchema: stringSchema })
+      .handler(async ({ input }) => {
+        if (input === "throw") {
+          throw new Error("Intentional test error");
+        }
+        return input;
+      })
+      .build();
 
     const result = await action("throw");
     expect(result.success).toBe(false);
@@ -40,16 +39,15 @@ describe("Thrown Error Handling", () => {
   });
 
   it("should use the default unhandled error for uncaught exceptions", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: stringSchema })
-        .handler(async ({ input }) => {
-          if (input === "throw") {
-            throw new Error("Uncaught error");
-          }
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: stringSchema })
+      .handler(async ({ input }) => {
+        if (input === "throw") {
+          throw new Error("Uncaught error");
+        }
+        return input;
+      })
+      .build();
 
     const result = await action("throw");
     expect(result.success).toBe(false);
@@ -69,15 +67,14 @@ describe("Thrown Error Handling", () => {
         valueType: typeof error,
       }) as const;
 
-    const action = craft((action) =>
-      action
-        .config({
-          handleThrownError: customErrorHandler,
-        })
-        .handler(async () => {
-          throw "string error";
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        handleThrownError: customErrorHandler,
+      })
+      .handler(async () => {
+        throw "string error";
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);
@@ -90,23 +87,22 @@ describe("Thrown Error Handling", () => {
   });
 
   it("should handle async thrown errors", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          handleThrownError: (error: unknown) =>
-            ({
-              type: "ASYNC_ERROR",
-              message:
-                error instanceof Error ? error.message : "Unknown async error",
-            }) as const,
-        })
-        .handler(async () => {
-          await new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("Async failure")), 10);
-          });
-          return "success";
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        handleThrownError: (error: unknown) =>
+          ({
+            type: "ASYNC_ERROR",
+            message:
+              error instanceof Error ? error.message : "Unknown async error",
+          }) as const,
+      })
+      .handler(async () => {
+        await new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Async failure")), 10);
+        });
+        return "success";
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);
@@ -129,15 +125,14 @@ describe("Thrown Error Handling", () => {
       }) as const;
 
     const createAction = (throwValue: unknown) =>
-      craft((action) =>
-        action
-          .config({
-            handleThrownError: universalErrorHandler,
-          })
-          .handler(async () => {
-            throw throwValue;
-          }),
-      );
+      actioncraft()
+        .config({
+          handleThrownError: universalErrorHandler,
+        })
+        .handler(async () => {
+          throw throwValue;
+        })
+        .build();
 
     // Test different thrown types
     const testCases = [
@@ -190,23 +185,22 @@ describe("Thrown Error Handling", () => {
       },
     } as const;
 
-    const action = craft((action) =>
-      action
-        .config({
-          handleThrownError: (error: unknown) =>
-            ({
-              type: "VALIDATION_THROW_ERROR",
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Unknown validation error",
-            }) as const,
-        })
-        .schemas({ inputSchema: throwingSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        handleThrownError: (error: unknown) =>
+          ({
+            type: "VALIDATION_THROW_ERROR",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Unknown validation error",
+          }) as const,
+      })
+      .schemas({ inputSchema: throwingSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     const result = await action("throw-in-validation");
     expect(result.success).toBe(false);
@@ -222,15 +216,14 @@ describe("Thrown Error Handling", () => {
       throw new Error("Error handler failed");
     };
 
-    const action = craft((action) =>
-      action
-        .config({
-          handleThrownError: faultyErrorHandler,
-        })
-        .handler(async () => {
-          throw new Error("Original error");
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        handleThrownError: faultyErrorHandler,
+      })
+      .handler(async () => {
+        throw new Error("Original error");
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);

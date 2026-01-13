@@ -1,28 +1,27 @@
-import { craft, initial } from "../../../src/index";
+import { actioncraft, initial } from "../../../src/index";
 import { getActionId } from "../../../src/utils";
 import { stringSchema, numberSchema } from "../../__fixtures__/schemas";
-import { describe, it, expect } from "../../setup";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 
 describe("Error Composition and Edge Cases", () => {
   it("should handle custom errors combined with validation errors", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: stringSchema })
-        .errors({
-          businessError: (reason: string) =>
-            ({
-              type: "BUSINESS_ERROR",
-              reason,
-            }) as const,
-        })
-        .handler(async ({ input, errors }) => {
-          if (input === "business-fail") {
-            return errors.businessError("Business logic violation");
-          }
-          return input.toUpperCase();
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: stringSchema })
+      .errors({
+        businessError: (reason: string) =>
+          ({
+            type: "BUSINESS_ERROR",
+            reason,
+          }) as const,
+      })
+      .handler(async ({ input, errors }) => {
+        if (input === "business-fail") {
+          return errors.businessError("Business logic violation");
+        }
+        return input.toUpperCase();
+      })
+      .build();
 
     // Test input validation error
     // @ts-expect-error - Testing invalid input
@@ -48,19 +47,18 @@ describe("Error Composition and Edge Cases", () => {
   });
 
   it("should handle errors in actions without schemas", async () => {
-    const action = craft((action) =>
-      action
-        .errors({
-          noSchemaError: (message: string) =>
-            ({
-              type: "NO_SCHEMA_ERROR",
-              message,
-            }) as const,
-        })
-        .handler(async ({ errors }) => {
-          return errors.noSchemaError("Error without schema validation");
-        }),
-    );
+    const action = actioncraft()
+      .errors({
+        noSchemaError: (message: string) =>
+          ({
+            type: "NO_SCHEMA_ERROR",
+            message,
+          }) as const,
+      })
+      .handler(async ({ errors }) => {
+        return errors.noSchemaError("Error without schema validation");
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);
@@ -71,28 +69,27 @@ describe("Error Composition and Edge Cases", () => {
   });
 
   it("should handle errors with bind arguments", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema] as const,
-        })
-        .errors({
-          bindError: (bindValue: number, inputValue: string) =>
-            ({
-              type: "BIND_ERROR",
-              bindValue,
-              inputValue,
-            }) as const,
-        })
-        .handler(async ({ input, bindArgs, errors }) => {
-          const [multiplier] = bindArgs;
-          if ((multiplier as number) > 10) {
-            return errors.bindError(multiplier as number, input as string);
-          }
-          return (input as string).repeat(multiplier as number);
-        }),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        bindSchemas: [numberSchema] as const,
+      })
+      .errors({
+        bindError: (bindValue: number, inputValue: string) =>
+          ({
+            type: "BIND_ERROR",
+            bindValue,
+            inputValue,
+          }) as const,
+      })
+      .handler(async ({ input, bindArgs, errors }) => {
+        const [multiplier] = bindArgs;
+        if ((multiplier as number) > 10) {
+          return errors.bindError(multiplier as number, input as string);
+        }
+        return (input as string).repeat(multiplier as number);
+      })
+      .build();
 
     // Test bind args validation error
     // @ts-expect-error - Testing invalid bind args
@@ -122,29 +119,28 @@ describe("Error Composition and Edge Cases", () => {
   });
 
   it("should handle errors with useActionState configuration", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .errors({
-          stateError: (message: string) =>
-            ({
-              type: "STATE_ERROR",
-              message,
-            }) as const,
-        })
-        .handler(async ({ errors, metadata }) => {
-          if (
-            metadata.prevState &&
-            !metadata.prevState.success &&
-            metadata.prevState.error.type === "STATE_ERROR"
-          ) {
-            return errors.stateError("Repeated state error");
-          }
-          return errors.stateError("Initial state error");
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .errors({
+        stateError: (message: string) =>
+          ({
+            type: "STATE_ERROR",
+            message,
+          }) as const,
+      })
+      .handler(async ({ errors, metadata }) => {
+        if (
+          metadata.prevState &&
+          !metadata.prevState.success &&
+          metadata.prevState.error.type === "STATE_ERROR"
+        ) {
+          return errors.stateError("Repeated state error");
+        }
+        return errors.stateError("Initial state error");
+      })
+      .build();
 
     const initialResult = await action({
       success: false,
@@ -160,21 +156,20 @@ describe("Error Composition and Edge Cases", () => {
   });
 
   it("should handle error data references correctly", async () => {
-    const action = craft((action) =>
-      action
-        .errors({
-          dataError: (data: Record<string, unknown>) =>
-            ({
-              type: "DATA_ERROR",
-              data,
-              timestamp: Date.now(),
-            }) as const,
-        })
-        .handler(async ({ errors }) => {
-          const errorData = { original: "value" };
-          return errors.dataError(errorData);
-        }),
-    );
+    const action = actioncraft()
+      .errors({
+        dataError: (data: Record<string, unknown>) =>
+          ({
+            type: "DATA_ERROR",
+            data,
+            timestamp: Date.now(),
+          }) as const,
+      })
+      .handler(async ({ errors }) => {
+        const errorData = { original: "value" };
+        return errors.dataError(errorData);
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);
@@ -193,16 +188,15 @@ describe("Error Composition and Edge Cases", () => {
   });
 
   it("should include raw input in values on validation error when useActionState is enabled", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          useActionState: true,
-        })
-        .schemas({ inputSchema: stringSchema })
-        .handler(async ({ input }) => {
-          return input;
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        useActionState: true,
+      })
+      .schemas({ inputSchema: stringSchema })
+      .handler(async ({ input }) => {
+        return input;
+      })
+      .build();
 
     // Trigger validation error by passing non-string input
     // useActionState signature: (previousState, input)
@@ -219,29 +213,28 @@ describe("Error Composition and Edge Cases", () => {
 
 describe("Action ID in Error Scenarios", () => {
   it("should include action ID in all custom error results", async () => {
-    const action = craft((action) =>
-      action
-        .errors({
-          businessError: (code: number) => ({
-            type: "BUSINESS_ERROR" as const,
-            code,
-          }),
-          validationError: (field: string) => ({
-            type: "VALIDATION_ERROR" as const,
-            field,
-          }),
-          authError: () => ({ type: "AUTH_ERROR" as const }),
-        })
-        .handler(async ({ errors }) => {
-          if (Math.random() > 0.7) {
-            return errors.businessError(500);
-          } else if (Math.random() > 0.3) {
-            return errors.validationError("email");
-          } else {
-            return errors.authError();
-          }
+    const action = actioncraft()
+      .errors({
+        businessError: (code: number) => ({
+          type: "BUSINESS_ERROR" as const,
+          code,
         }),
-    );
+        validationError: (field: string) => ({
+          type: "VALIDATION_ERROR" as const,
+          field,
+        }),
+        authError: () => ({ type: "AUTH_ERROR" as const }),
+      })
+      .handler(async ({ errors }) => {
+        if (Math.random() > 0.7) {
+          return errors.businessError(500);
+        } else if (Math.random() > 0.3) {
+          return errors.validationError("email");
+        } else {
+          return errors.authError();
+        }
+      })
+      .build();
 
     const result = await action();
     const actionId = getActionId(action);
@@ -253,11 +246,10 @@ describe("Action ID in Error Scenarios", () => {
   });
 
   it("should include action ID in input validation errors", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: stringSchema })
-        .handler(async ({ input }) => input),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: stringSchema })
+      .handler(async ({ input }) => input)
+      .build();
 
     // @ts-expect-error - Testing invalid input
     const result = await action(123);
@@ -271,14 +263,13 @@ describe("Action ID in Error Scenarios", () => {
   });
 
   it("should include action ID in bind args validation errors", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: stringSchema,
-          bindSchemas: [numberSchema] as const,
-        })
-        .handler(async ({ input, bindArgs }) => ({ input, bindArgs })),
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        bindSchemas: [numberSchema] as const,
+      })
+      .handler(async ({ input, bindArgs }) => ({ input, bindArgs }))
+      .build();
 
     // @ts-expect-error - Testing invalid bind args
     const result = await action("invalid", "test");
@@ -292,15 +283,13 @@ describe("Action ID in Error Scenarios", () => {
   });
 
   it("should include action ID in output validation errors (client sees UNHANDLED)", async () => {
-    const action = craft(
-      (action) =>
-        action
-          .schemas({
-            inputSchema: stringSchema,
-            outputSchema: numberSchema,
-          })
-          .handler(async ({ input }) => input), // Returns string when number expected
-    );
+    const action = actioncraft()
+      .schemas({
+        inputSchema: stringSchema,
+        outputSchema: numberSchema,
+      })
+      .handler(async ({ input }) => input) // Returns string when number expected
+      .build();
 
     const result = await action("not-a-number");
     const actionId = getActionId(action);
@@ -313,11 +302,11 @@ describe("Action ID in Error Scenarios", () => {
   });
 
   it("should include action ID in unhandled thrown errors", async () => {
-    const action = craft((action) =>
-      action.handler(async () => {
+    const action = actioncraft()
+      .handler(async () => {
         throw new Error("Unhandled error");
-      }),
-    );
+      })
+      .build();
 
     const result = await action();
     const actionId = getActionId(action);
@@ -330,18 +319,17 @@ describe("Action ID in Error Scenarios", () => {
   });
 
   it("should include action ID in custom thrown error handler results", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          handleThrownError: (error: unknown) => ({
-            type: "CUSTOM_THROWN_ERROR" as const,
-            message: error instanceof Error ? error.message : String(error),
-          }),
-        })
-        .handler(async () => {
-          throw new Error("Custom handled error");
+    const action = actioncraft()
+      .config({
+        handleThrownError: (error: unknown) => ({
+          type: "CUSTOM_THROWN_ERROR" as const,
+          message: error instanceof Error ? error.message : String(error),
         }),
-    );
+      })
+      .handler(async () => {
+        throw new Error("Custom handled error");
+      })
+      .build();
 
     const result = await action();
     const actionId = getActionId(action);
@@ -354,11 +342,11 @@ describe("Action ID in Error Scenarios", () => {
   });
 
   it("should include action ID in implicit return errors", async () => {
-    const action = craft((action) =>
-      action.handler(async () => {
+    const action = actioncraft()
+      .handler(async () => {
         // Implicit return undefined
-      }),
-    );
+      })
+      .build();
 
     const result = await action();
     const actionId = getActionId(action);
@@ -379,27 +367,24 @@ describe("Action ID in Error Scenarios", () => {
     };
 
     // API format
-    const apiAction = craft((action) =>
-      action
-        .errors(errorDef)
-        .handler(async ({ errors }) => errors.formatError("api")),
-    );
+    const apiAction = actioncraft()
+      .errors(errorDef)
+      .handler(async ({ errors }) => errors.formatError("api"))
+      .build();
 
     // Functional format
-    const functionalAction = craft((action) =>
-      action
-        .config({ resultFormat: "functional" })
-        .errors(errorDef)
-        .handler(async ({ errors }) => errors.formatError("functional")),
-    );
+    const functionalAction = actioncraft()
+      .config({ resultFormat: "functional" })
+      .errors(errorDef)
+      .handler(async ({ errors }) => errors.formatError("functional"))
+      .build();
 
     // useActionState format
-    const stateAction = craft((action) =>
-      action
-        .config({ useActionState: true })
-        .errors(errorDef)
-        .handler(async ({ errors }) => errors.formatError("state")),
-    );
+    const stateAction = actioncraft()
+      .config({ useActionState: true })
+      .errors(errorDef)
+      .handler(async ({ errors }) => errors.formatError("state"))
+      .build();
 
     const apiResult = await apiAction();
     const functionalResult = await functionalAction();
@@ -423,27 +408,26 @@ describe("Action ID in Error Scenarios", () => {
   it("should maintain action ID consistency in error callbacks", async () => {
     const capturedActionIds: string[] = [];
 
-    const action = craft((action) =>
-      action
-        .errors({
-          callbackError: () => ({ type: "CALLBACK_ERROR" as const }),
-        })
-        .handler(async ({ errors, metadata }) => {
+    const action = actioncraft()
+      .errors({
+        callbackError: () => ({ type: "CALLBACK_ERROR" as const }),
+      })
+      .handler(async ({ errors, metadata }) => {
+        capturedActionIds.push(metadata.actionId);
+        return errors.callbackError();
+      })
+      .callbacks({
+        onStart: async ({ metadata }) => {
           capturedActionIds.push(metadata.actionId);
-          return errors.callbackError();
-        })
-        .callbacks({
-          onStart: async ({ metadata }) => {
-            capturedActionIds.push(metadata.actionId);
-          },
-          onError: async ({ metadata }) => {
-            capturedActionIds.push(metadata.actionId);
-          },
-          onSettled: async ({ metadata }) => {
-            capturedActionIds.push(metadata.actionId);
-          },
-        }),
-    );
+        },
+        onError: async ({ metadata }) => {
+          capturedActionIds.push(metadata.actionId);
+        },
+        onSettled: async ({ metadata }) => {
+          capturedActionIds.push(metadata.actionId);
+        },
+      })
+      .build();
 
     const result = await action();
     const actionId = getActionId(action);
@@ -455,44 +439,43 @@ describe("Action ID in Error Scenarios", () => {
   });
 
   it("should handle action ID in complex error scenarios with multiple validation layers", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({
-          inputSchema: z.object({
-            email: z.string().email(),
-            age: z.number().min(18),
-          }),
-          bindSchemas: [z.string().min(1)] as const,
-          outputSchema: z.object({
-            user: z.object({
-              id: z.string(),
-              email: z.string(),
-              age: z.number(),
-            }),
-          }),
-        })
-        .errors({
-          businessLogicError: (reason: string) => ({
-            type: "BUSINESS_LOGIC_ERROR" as const,
-            reason,
-          }),
-        })
-        .handler(async ({ input, bindArgs, errors }) => {
-          const [prefix] = bindArgs;
-
-          if (input.age < 21) {
-            return errors.businessLogicError("Age restriction");
-          }
-
-          return {
-            user: {
-              id: `${prefix}-${Date.now()}`,
-              email: input.email,
-              age: input.age,
-            },
-          };
+    const action = actioncraft()
+      .schemas({
+        inputSchema: z.object({
+          email: z.string().email(),
+          age: z.number().min(18),
         }),
-    );
+        bindSchemas: [z.string().min(1)] as const,
+        outputSchema: z.object({
+          user: z.object({
+            id: z.string(),
+            email: z.string(),
+            age: z.number(),
+          }),
+        }),
+      })
+      .errors({
+        businessLogicError: (reason: string) => ({
+          type: "BUSINESS_LOGIC_ERROR" as const,
+          reason,
+        }),
+      })
+      .handler(async ({ input, bindArgs, errors }) => {
+        const [prefix] = bindArgs;
+
+        if (input.age < 21) {
+          return errors.businessLogicError("Age restriction");
+        }
+
+        return {
+          user: {
+            id: `${prefix}-${Date.now()}`,
+            email: input.email,
+            age: input.age,
+          },
+        };
+      })
+      .build();
 
     const actionId = getActionId(action);
 
@@ -535,16 +518,15 @@ describe("Action ID in Error Scenarios", () => {
 
 describe("Action Name in Error Messages", () => {
   it("should include action name in validation error messages", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          actionName: "updateUserProfile",
-        })
-        .schemas({ inputSchema: numberSchema })
-        .handler(async ({ input }) => {
-          return input * 2;
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        actionName: "updateUserProfile",
+      })
+      .schemas({ inputSchema: numberSchema })
+      .handler(async ({ input }) => {
+        return input * 2;
+      })
+      .build();
 
     // Test input validation error with action name
     const result = await action("not-a-number" as any);
@@ -559,15 +541,14 @@ describe("Action Name in Error Messages", () => {
   });
 
   it("should include action name in unhandled error messages", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          actionName: "processPayment",
-        })
-        .handler(async () => {
-          throw new Error("Payment gateway error");
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        actionName: "processPayment",
+      })
+      .handler(async () => {
+        throw new Error("Payment gateway error");
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);
@@ -581,17 +562,16 @@ describe("Action Name in Error Messages", () => {
   });
 
   it("should include action name in implicit return error messages", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          actionName: "calculateTotal",
-        })
-        .handler(async () => {
-          // Implicit return (undefined)
-          const total = 100 + 50;
-          // Missing return statement
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        actionName: "calculateTotal",
+      })
+      .handler(async () => {
+        // Implicit return (undefined)
+        const total = 100 + 50;
+        // Missing return statement
+      })
+      .build();
 
     const result = await action();
     expect(result.success).toBe(false);
@@ -601,19 +581,18 @@ describe("Action Name in Error Messages", () => {
   });
 
   it("should include action name in bind args validation error messages", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          actionName: "multiplyNumbers",
-        })
-        .schemas({
-          inputSchema: numberSchema,
-          bindSchemas: [stringSchema] as const,
-        })
-        .handler(async ({ input, bindArgs }) => {
-          return input * parseInt(bindArgs[0] as string);
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        actionName: "multiplyNumbers",
+      })
+      .schemas({
+        inputSchema: numberSchema,
+        bindSchemas: [stringSchema] as const,
+      })
+      .handler(async ({ input, bindArgs }) => {
+        return input * parseInt(bindArgs[0] as string);
+      })
+      .build();
 
     // Test bind args validation error with action name
     const result = await action(123 as any, 5); // bindArgs should be string, not number
@@ -630,21 +609,20 @@ describe("Action Name in Error Messages", () => {
   it("should include action name in metadata for callbacks", async () => {
     let capturedMetadata: any = null;
 
-    const action = craft((action) =>
-      action
-        .config({
-          actionName: "testAction",
-        })
-        .schemas({ inputSchema: stringSchema })
-        .handler(async ({ input }) => {
-          return input.toUpperCase();
-        })
-        .callbacks({
-          onSuccess: ({ metadata }) => {
-            capturedMetadata = metadata;
-          },
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        actionName: "testAction",
+      })
+      .schemas({ inputSchema: stringSchema })
+      .handler(async ({ input }) => {
+        return input.toUpperCase();
+      })
+      .callbacks({
+        onSuccess: ({ metadata }) => {
+          capturedMetadata = metadata;
+        },
+      })
+      .build();
 
     const result = await action("hello");
     expect(result.success).toBe(true);
@@ -655,13 +633,12 @@ describe("Action Name in Error Messages", () => {
   });
 
   it("should work without action name (backward compatibility)", async () => {
-    const action = craft((action) =>
-      action
-        .schemas({ inputSchema: numberSchema })
-        .handler(async ({ input }) => {
-          return input * 2;
-        }),
-    );
+    const action = actioncraft()
+      .schemas({ inputSchema: numberSchema })
+      .handler(async ({ input }) => {
+        return input * 2;
+      })
+      .build();
 
     // Test that validation errors work without action name
     const result = await action("not-a-number" as any);
@@ -674,16 +651,15 @@ describe("Action Name in Error Messages", () => {
   });
 
   it("should work with empty action name", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          actionName: "",
-        })
-        .schemas({ inputSchema: numberSchema })
-        .handler(async ({ input }) => {
-          return input * 2;
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        actionName: "",
+      })
+      .schemas({ inputSchema: numberSchema })
+      .handler(async ({ input }) => {
+        return input * 2;
+      })
+      .build();
 
     const result = await action("not-a-number" as any);
     expect(result.success).toBe(false);
@@ -695,16 +671,15 @@ describe("Action Name in Error Messages", () => {
   });
 
   it("should handle special characters in action names", async () => {
-    const action = craft((action) =>
-      action
-        .config({
-          actionName: "user-profile:update_v2",
-        })
-        .schemas({ inputSchema: numberSchema })
-        .handler(async ({ input }) => {
-          return input * 2;
-        }),
-    );
+    const action = actioncraft()
+      .config({
+        actionName: "user-profile:update_v2",
+      })
+      .schemas({ inputSchema: numberSchema })
+      .handler(async ({ input }) => {
+        return input * 2;
+      })
+      .build();
 
     const result = await action("not-a-number" as any);
     expect(result.success).toBe(false);

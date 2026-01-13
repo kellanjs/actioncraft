@@ -42,11 +42,13 @@
     "dev": "vitest",
     "build": "tsc",
     "lint": "eslint .",
+    "type": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "format": "prettier --write .",
     "check-format": "prettier --check .",
     "check-exports": "attw --pack . --ignore-rules=cjs-resolves-to-esm",
-    "ci": "npm run lint && npm run build && npm run check-format && npm run check-exports && npm run test"
+    "ci": "npm run lint && npm run type && npm run build && npm run check-format && npm run check-exports && npm run test"
   },
   "peerDependencies": {
     "next": "^15.0.0 || ^16.0.0",
@@ -59,16 +61,17 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
-    "@eslint/js": "^9.39.0",
-    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
-    "eslint": "^9.39.0",
-    "next": "^16.0.0",
-    "prettier": "^3.6.2",
-    "react": "^19.2.0",
+    "@eslint/js": "^9.39.2",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@vitest/coverage-v8": "^4.0.17",
+    "eslint": "^9.39.2",
+    "next": "^16.1.1",
+    "prettier": "^3.7.4",
+    "react": "^19.2.3",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.2",
-    "vitest": "^4.0.6",
-    "zod": "^4.1.12",
+    "typescript-eslint": "^8.53.0",
+    "vitest": "^4.0.17",
+    "zod": "^4.3.5",
     "zod-form-data": "^3.0.1"
   }
 }

@@ -1,4 +1,4 @@
-import { craft, action } from "../../../src/index";
+import { actioncraft } from "../../../src/index";
 import {
   expectValidAction,
   expectSuccessResult,
@@ -11,7 +11,7 @@ import {
   numberSchema,
   userSchema,
 } from "../../__fixtures__/schemas";
-import { describe, expect, it } from "../../setup";
+import { describe, it, expect } from "vitest";
 
 // File-specific test utilities (not shared across other test files)
 const testSchemas = {
@@ -174,524 +174,443 @@ const commonErrors = {
 };
 
 /**
- * Consolidated test suite for both craft() and action() APIs
- * Tests both APIs in a loop to eliminate duplication
+ * Test suite for the actioncraft() API
  */
+describe("Actioncraft API", () => {
+  describe("actioncraft() function", () => {
+    it("should create a crafted action using fluent API", () => {
+      const action = actioncraft()
+        .schemas({ inputSchema: testSchemas.string })
+        .handler(testHandlers.identity)
+        .build();
+      expectValidAction(action);
+    });
 
-// Define the API configurations to test
-const apiConfigs = [
-  {
-    name: "Craft",
-    createAction: (builderFn: any) => craft(builderFn),
-    isActionBuilder: false,
-  },
-  {
-    name: "ActionBuilder",
-    createAction: (builderFn: any) => {
-      const builder = action();
-      const configuredBuilder = builderFn(builder);
-      return configuredBuilder.craft();
-    },
-    isActionBuilder: true,
-  },
-];
+    it("should accept configuration", () => {
+      const action = actioncraft()
+        .config(testConfigs.flattenedFunctional)
+        .handler(async () => "test")
+        .build();
+      expectValidAction(action);
+    });
 
-// Run the test suite for each API
-apiConfigs.forEach(({ name, createAction, isActionBuilder }) => {
-  describe(`${name} API`, () => {
-    describe(`${name.toLowerCase()}() function`, () => {
-      it(`should create a ${isActionBuilder ? "builder instance" : "crafted action"}`, () => {
-        if (isActionBuilder) {
-          // For ActionBuilder, we test that we can create a valid action
-          const action = createAction((builder: any) =>
-            builder.handler(async () => "test"),
-          );
-          expectValidAction(action);
-        } else {
-          const action = createAction((action: any) =>
-            action
-              .schemas({ inputSchema: testSchemas.string })
-              .handler(testHandlers.identity),
-          );
-          expectValidAction(action);
-        }
-      });
+    it("should accept useActionState configuration", () => {
+      const action = actioncraft()
+        .config(testConfigs.useActionState)
+        .handler(async () => "test")
+        .build();
+      expectValidAction(action);
+    });
+  });
 
-      if (isActionBuilder) {
-        it("should create a crafted action using fluent API", () => {
-          const craftedAction = createAction((builder: any) =>
-            builder
-              .schemas({ inputSchema: testSchemas.string })
-              .handler(testHandlers.identity),
-          );
-          expectValidAction(craftedAction);
-        });
+  describe("Method chaining", () => {
+    it("should allow chaining schemas -> errors -> handler", () => {
+      const action = actioncraft()
+        .schemas({ inputSchema: testSchemas.string })
+        .errors({ validationError: commonErrors.validationError })
+        .handler(testHandlers.uppercase)
+        .build();
+      expectValidAction(action);
+    });
+
+    it("should allow chaining in different orders", () => {
+      const action1 = actioncraft()
+        .errors({ customError: commonErrors.customError })
+        .schemas({ inputSchema: testSchemas.string })
+        .handler(testHandlers.identity)
+        .build();
+
+      const action2 = actioncraft()
+        .schemas({ inputSchema: testSchemas.string })
+        .handler(testHandlers.identity)
+        .build();
+
+      expectValidAction(action1);
+      expectValidAction(action2);
+    });
+
+    it("should allow callbacks after handler", () => {
+      const action = actioncraft()
+        .schemas({ inputSchema: testSchemas.string })
+        .handler(testHandlers.identity)
+        .callbacks({
+          onSuccess: mockCallbacks.onSuccess,
+          onError: mockCallbacks.onError,
+        })
+        .build();
+      expectValidAction(action);
+    });
+
+    it("should allow config -> schemas -> errors -> handler -> callbacks -> build", () => {
+      const action = actioncraft()
+        .config(testConfigs.nestedApi)
+        .schemas({
+          inputSchema: testSchemas.string,
+          outputSchema: testSchemas.string,
+        })
+        .errors({ businessError: commonErrors.businessError })
+        .handler(testHandlers.withErrorCheck)
+        .callbacks({
+          onSuccess: mockCallbacks.onSuccess,
+          onError: mockCallbacks.onError,
+          onSettled: mockCallbacks.onSettled,
+        })
+        .build();
+      expectValidAction(action);
+    });
+  });
+
+  describe("Configuration options", () => {
+    it("should handle validationErrorFormat configuration", () => {
+      const flattenedAction = actioncraft()
+        .config(testConfigs.flattened)
+        .schemas({ inputSchema: testSchemas.string })
+        .handler(testHandlers.identity)
+        .build();
+
+      const nestedAction = actioncraft()
+        .config(testConfigs.nested)
+        .schemas({ inputSchema: testSchemas.string })
+        .handler(testHandlers.identity)
+        .build();
+
+      expectValidAction(flattenedAction);
+      expectValidAction(nestedAction);
+    });
+
+    it("should handle resultFormat configuration", () => {
+      const functionalAction = actioncraft()
+        .config(testConfigs.functional)
+        .handler(async () => "test")
+        .build();
+
+      const apiAction = actioncraft()
+        .config(testConfigs.api)
+        .handler(async () => "test")
+        .build();
+
+      expectValidAction(functionalAction);
+      expectValidAction(apiAction);
+    });
+
+    it("should handle custom error handler", () => {
+      const action = actioncraft()
+        .config(testConfigs.customErrorHandler)
+        .handler(async () => "test")
+        .build();
+      expectValidAction(action);
+    });
+  });
+
+  describe("Schema types", () => {
+    it("should handle multiple schemas", () => {
+      const action = actioncraft()
+        .schemas({
+          inputSchema: testSchemas.string,
+          outputSchema: testSchemas.string,
+          bindSchemas: [testSchemas.number, testSchemas.user] as const,
+        })
+        .handler(testHandlers.withBindArgs)
+        .build();
+      expectValidAction(action);
+    });
+
+    it("should work without input schema", () => {
+      const action = actioncraft().handler(testHandlers.noInput).build();
+      expectValidAction(action);
+    });
+  });
+
+  describe("Error handling", () => {
+    it("should throw error if build() is called without handler", () => {
+      expect(() => {
+        actioncraft().schemas({ inputSchema: testSchemas.string }).build();
+      }).toThrow("A handler implementation is required");
+    });
+
+    it("should accept multiple error definitions", () => {
+      const action = actioncraft()
+        .errors({
+          notFound: commonErrors.notFound,
+          unauthorized: commonErrors.unauthorized,
+          validationFailed: commonErrors.validationFailed,
+        })
+        .handler(testHandlers.multiErrorValidator)
+        .build();
+      expectValidAction(action);
+    });
+  });
+
+  describe("Advanced chaining scenarios", () => {
+    it("should reset callbacks when schemas() is called after handler", () => {
+      const action = actioncraft()
+        .handler(async () => "test")
+        .callbacks({ onSuccess: mockCallbacks.onSuccess })
+        .schemas({ inputSchema: testSchemas.string })
+        .handler(testHandlers.identity)
+        .build();
+      expectValidAction(action);
+    });
+
+    it("should reset callbacks when errors() is called after handler", () => {
+      const action = actioncraft()
+        .handler(async () => "test")
+        .callbacks({ onSuccess: mockCallbacks.onSuccess })
+        .errors({ customError: commonErrors.customError })
+        .handler(async () => "test")
+        .build();
+      expectValidAction(action);
+    });
+
+    it("should reset callbacks when handler() is called again", () => {
+      const action = actioncraft()
+        .handler(async () => "first")
+        .callbacks({ onSuccess: mockCallbacks.onSuccess })
+        .handler(async () => "second")
+        .build();
+      expectValidAction(action);
+    });
+
+    it("should allow multiple schemas() calls", () => {
+      const action = actioncraft()
+        .schemas({ inputSchema: testSchemas.string })
+        .schemas({ inputSchema: testSchemas.number })
+        .handler(testHandlers.identity)
+        .build();
+      expectValidAction(action);
+    });
+
+    it("should allow multiple errors() calls", () => {
+      const action = actioncraft()
+        .errors({ firstError: commonErrors.firstError })
+        .errors({ secondError: commonErrors.secondError })
+        .handler(testHandlers.secondErrorValidator)
+        .build();
+      expectValidAction(action);
+    });
+
+    it("should use schemas from the last schemas() call for validation", async () => {
+      const action = actioncraft()
+        .schemas({ inputSchema: testSchemas.string })
+        .schemas({ inputSchema: testSchemas.number })
+        .handler(testHandlers.multiply)
+        .build();
+
+      const validResult = await action(commonTestData.validNumber);
+      expectSuccessResult(validResult, commonTestData.expectedDoubled);
+
+      const invalidResult = await action(commonTestData.invalidString as any);
+      expect(invalidResult.success).toBe(false);
+      if (!invalidResult.success) {
+        expect(invalidResult.error.type).toBe("INPUT_VALIDATION");
       }
-
-      it("should accept configuration", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .config(testConfigs.flattenedFunctional)
-            .handler(async () => "test"),
-        );
-        expectValidAction(action);
-      });
-
-      it("should accept useActionState configuration", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .config(testConfigs.useActionState)
-            .handler(async () => "test"),
-        );
-        expectValidAction(action);
-      });
     });
 
-    describe("Method chaining", () => {
-      it("should allow chaining schemas -> errors -> handler", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({ inputSchema: testSchemas.string })
-            .errors({ validationError: commonErrors.validationError })
-            .handler(testHandlers.uppercase),
-        );
-        expectValidAction(action);
-      });
+    it("should use errors from the last errors() call", async () => {
+      const action = actioncraft()
+        .errors({ first: commonErrors.firstError })
+        .errors({ second: commonErrors.secondError })
+        .handler(async ({ errors }: any) => {
+          return errors.second();
+        })
+        .build();
 
-      it("should allow chaining in different orders", () => {
-        const action1 = createAction((builder: any) =>
-          builder
-            .errors({ customError: commonErrors.customError })
-            .schemas({ inputSchema: testSchemas.string })
-            .handler(testHandlers.identity),
-        );
+      const result = await action();
+      expectErrorResult(result, { type: "SECOND" });
+    });
+  });
 
-        const action2 = createAction((builder: any) =>
-          builder
-            .schemas({ inputSchema: testSchemas.string })
-            .handler(testHandlers.identity),
-        );
-
-        expectValidAction(action1);
-        expectValidAction(action2);
-      });
-
-      it("should allow callbacks after handler", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({ inputSchema: testSchemas.string })
-            .handler(testHandlers.identity)
-            .callbacks({
-              onSuccess: mockCallbacks.onSuccess,
-              onError: mockCallbacks.onError,
-            }),
-        );
-        expectValidAction(action);
-      });
-
-      if (isActionBuilder) {
-        it("should allow config -> schemas -> errors -> handler -> callbacks -> craft", () => {
-          const action = createAction((builder: any) =>
-            builder
-              .config(testConfigs.nestedApi)
-              .schemas({
-                inputSchema: testSchemas.string,
-                outputSchema: testSchemas.string,
-              })
-              .errors({ businessError: commonErrors.businessError })
-              .handler(testHandlers.withErrorCheck)
-              .callbacks({
-                onSuccess: mockCallbacks.onSuccess,
-                onError: mockCallbacks.onError,
-                onSettled: mockCallbacks.onSettled,
-              }),
-          );
-          expectValidAction(action);
-        });
-      }
+  describe("Configuration edge cases", () => {
+    it("should handle empty configuration object", () => {
+      const action = actioncraft()
+        .config({})
+        .handler(async () => "test")
+        .build();
+      expectValidAction(action);
     });
 
-    describe("Configuration options", () => {
-      it("should handle validationErrorFormat configuration", () => {
-        const flattenedAction = createAction((builder: any) =>
-          builder
-            .config(testConfigs.flattened)
-            .schemas({ inputSchema: testSchemas.string })
-            .handler(testHandlers.identity),
-        );
-
-        const nestedAction = createAction((builder: any) =>
-          builder
-            .config(testConfigs.nested)
-            .schemas({ inputSchema: testSchemas.string })
-            .handler(testHandlers.identity),
-        );
-
-        expectValidAction(flattenedAction);
-        expectValidAction(nestedAction);
-      });
-
-      it("should handle resultFormat configuration", () => {
-        const functionalAction = createAction((builder: any) =>
-          builder.config(testConfigs.functional).handler(async () => "test"),
-        );
-
-        const apiAction = createAction((builder: any) =>
-          builder.config(testConfigs.api).handler(async () => "test"),
-        );
-
-        expectValidAction(functionalAction);
-        expectValidAction(apiAction);
-      });
-
-      it("should handle custom error handler", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .config(testConfigs.customErrorHandler)
-            .handler(async () => "test"),
-        );
-        expectValidAction(action);
-      });
+    it("should handle useActionState with explicit resultFormat", () => {
+      const action = actioncraft()
+        .config(testConfigs.useActionStateApi)
+        .handler(async () => "test")
+        .build();
+      expectValidAction(action);
     });
 
-    describe("Schema types", () => {
-      it("should handle multiple schemas", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({
-              inputSchema: testSchemas.string,
-              outputSchema: testSchemas.string,
-              bindSchemas: [testSchemas.number, testSchemas.user] as const,
-            })
-            .handler(testHandlers.withBindArgs),
-        );
-        expectValidAction(action);
-      });
+    it("should handle all validation format combinations", () => {
+      const nestedAction = actioncraft()
+        .config(testConfigs.nestedApi)
+        .handler(async () => "test")
+        .build();
 
-      it("should work without input schema", () => {
-        const action = createAction((builder: any) =>
-          builder.handler(testHandlers.noInput),
-        );
-        expectValidAction(action);
-      });
+      const flattenedAction = actioncraft()
+        .config(testConfigs.flattenedFunctional)
+        .handler(async () => "test")
+        .build();
+
+      expectValidAction(nestedAction);
+      expectValidAction(flattenedAction);
     });
 
-    describe("Error handling", () => {
-      it("should throw error if craft() is called without handler", () => {
-        expect(() => {
-          createAction((builder: any) =>
-            builder.schemas({ inputSchema: testSchemas.string }),
-          );
-        }).toThrow("A handler implementation is required");
-      });
+    it("should handle complex custom error handler", () => {
+      const action = actioncraft()
+        .config(testConfigs.complexCustomHandler)
+        .handler(async () => "test")
+        .build();
+      expectValidAction(action);
+    });
+  });
 
-      it("should accept multiple error definitions", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .errors({
-              notFound: commonErrors.notFound,
-              unauthorized: commonErrors.unauthorized,
-              validationFailed: commonErrors.validationFailed,
-            })
-            .handler(testHandlers.multiErrorValidator),
-        );
-        expectValidAction(action);
-      });
+  describe("Schema edge cases", () => {
+    it("should handle empty schemas object", () => {
+      const action = actioncraft()
+        .schemas({})
+        .handler(async () => "no schemas")
+        .build();
+      expectValidAction(action);
     });
 
-    describe("Advanced chaining scenarios", () => {
-      it("should reset callbacks when schemas() is called after handler", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .handler(async () => "test")
-            .callbacks({ onSuccess: mockCallbacks.onSuccess })
-            .schemas({ inputSchema: testSchemas.string })
-            .handler(testHandlers.identity),
-        );
-        expectValidAction(action);
-      });
-
-      it("should reset callbacks when errors() is called after handler", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .handler(async () => "test")
-            .callbacks({ onSuccess: mockCallbacks.onSuccess })
-            .errors({ customError: commonErrors.customError })
-            .handler(async () => "test"),
-        );
-        expectValidAction(action);
-      });
-
-      it("should reset callbacks when handler() is called again", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .handler(async () => "first")
-            .callbacks({ onSuccess: mockCallbacks.onSuccess })
-            .handler(async () => "second"),
-        );
-        expectValidAction(action);
-      });
-
-      it("should allow multiple schemas() calls", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({ inputSchema: testSchemas.string })
-            .schemas({ inputSchema: testSchemas.number })
-            .handler(testHandlers.identity),
-        );
-        expectValidAction(action);
-      });
-
-      it("should allow multiple errors() calls", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .errors({ firstError: commonErrors.firstError })
-            .errors({ secondError: commonErrors.secondError })
-            .handler(testHandlers.secondErrorValidator),
-        );
-        expectValidAction(action);
-      });
-
-      it("should use schemas from the last schemas() call for validation", async () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({ inputSchema: testSchemas.string })
-            .schemas({ inputSchema: testSchemas.number })
-            .handler(testHandlers.multiply),
-        );
-
-        const validResult = await action(commonTestData.validNumber);
-        expectSuccessResult(validResult, commonTestData.expectedDoubled);
-
-        const invalidResult = await action(commonTestData.invalidString);
-        expect(invalidResult.success).toBe(false);
-        if (!invalidResult.success) {
-          expect(invalidResult.error.type).toBe("INPUT_VALIDATION");
-        }
-      });
-
-      it("should use errors from the last errors() call", async () => {
-        const action = createAction((builder: any) =>
-          builder
-            .errors({ first: commonErrors.firstError })
-            .errors({ second: commonErrors.secondError })
-            .handler(async ({ errors }: any) => {
-              // The error key is 'second', not 'secondError'
-              return errors.second();
-            }),
-        );
-
-        const result = await action();
-        expectErrorResult(result, { type: "SECOND" });
-      });
+    it("should handle only outputSchema", () => {
+      const action = actioncraft()
+        .schemas({ outputSchema: testSchemas.string })
+        .handler(async () => "output only")
+        .build();
+      expectValidAction(action);
     });
 
-    describe("Configuration edge cases", () => {
-      it("should handle empty configuration object", () => {
-        const action = createAction((builder: any) =>
-          builder.config({}).handler(async () => "test"),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle useActionState with explicit resultFormat", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .config(testConfigs.useActionStateApi)
-            .handler(async () => "test"),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle all validation format combinations", () => {
-        const nestedAction = createAction((builder: any) =>
-          builder.config(testConfigs.nestedApi).handler(async () => "test"),
-        );
-
-        const flattenedAction = createAction((builder: any) =>
-          builder
-            .config(testConfigs.flattenedFunctional)
-            .handler(async () => "test"),
-        );
-
-        expectValidAction(nestedAction);
-        expectValidAction(flattenedAction);
-      });
-
-      it("should handle complex custom error handler", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .config(testConfigs.complexCustomHandler)
-            .handler(async () => "test"),
-        );
-        expectValidAction(action);
-      });
+    it("should handle only bindSchemas", () => {
+      const action = actioncraft()
+        .schemas({ bindSchemas: [testSchemas.number] as const })
+        .handler(testHandlers.bindArgChecker)
+        .build();
+      expectValidAction(action);
     });
 
-    describe("Schema edge cases", () => {
-      it("should handle empty schemas object", () => {
-        const action = createAction((builder: any) =>
-          builder.schemas({}).handler(async () => "no schemas"),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle only outputSchema", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({ outputSchema: testSchemas.string })
-            .handler(async () => "output only"),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle only bindSchemas", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({ bindSchemas: [testSchemas.number] as const })
-            .handler(testHandlers.bindArgChecker),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle empty bindSchemas array", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({
-              inputSchema: testSchemas.string,
-              bindSchemas: [] as const,
-            })
-            .handler(testHandlers.bindArgValidator),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle single bindSchema", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({ bindSchemas: [testSchemas.string] as const })
-            .handler(testHandlers.bindArgProcessor),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle all schema types together", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({
-              inputSchema: testSchemas.string,
-              outputSchema: testSchemas.string,
-              bindSchemas: [testSchemas.number, testSchemas.user] as const,
-            })
-            .handler(testHandlers.withBindArgs),
-        );
-        expectValidAction(action);
-      });
+    it("should handle empty bindSchemas array", () => {
+      const action = actioncraft()
+        .schemas({
+          inputSchema: testSchemas.string,
+          bindSchemas: [] as const,
+        })
+        .handler(testHandlers.bindArgValidator)
+        .build();
+      expectValidAction(action);
     });
 
-    describe("Error definition edge cases", () => {
-      it("should handle empty errors object", () => {
-        const action = createAction((builder: any) =>
-          builder.errors({}).handler(testHandlers.errorValidator),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle single error definition", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .errors({ singleError: commonErrors.singleError })
-            .handler(testHandlers.singleErrorValidator),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle error with complex parameters", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .errors({ complexError: commonErrors.complexError })
-            .handler(testHandlers.complexErrorValidator),
-        );
-        expectValidAction(action);
-      });
+    it("should handle single bindSchema", () => {
+      const action = actioncraft()
+        .schemas({ bindSchemas: [testSchemas.string] as const })
+        .handler(testHandlers.bindArgProcessor)
+        .build();
+      expectValidAction(action);
     });
 
-    describe("Callback edge cases", () => {
-      it("should handle partial callback definitions", () => {
-        const onSuccessOnly = createAction((builder: any) =>
-          builder
-            .handler(async () => "test")
-            .callbacks({ onSuccess: mockCallbacks.onSuccess }),
-        );
+    it("should handle all schema types together", () => {
+      const action = actioncraft()
+        .schemas({
+          inputSchema: testSchemas.string,
+          outputSchema: testSchemas.string,
+          bindSchemas: [testSchemas.number, testSchemas.user] as const,
+        })
+        .handler(testHandlers.withBindArgs)
+        .build();
+      expectValidAction(action);
+    });
+  });
 
-        const onErrorOnly = createAction((builder: any) =>
-          builder
-            .handler(async () => "test")
-            .callbacks({ onError: mockCallbacks.onError }),
-        );
-
-        const onSettledOnly = createAction((builder: any) =>
-          builder
-            .handler(async () => "test")
-            .callbacks({ onSettled: mockCallbacks.onSettled }),
-        );
-
-        expectValidAction(onSuccessOnly);
-        expectValidAction(onErrorOnly);
-        expectValidAction(onSettledOnly);
-      });
-
-      it("should handle async callbacks", () => {
-        const action = createAction((builder: any) =>
-          builder.handler(async () => "test").callbacks(mockCallbacks.async),
-        );
-        expectValidAction(action);
-      });
-
-      it("should handle callbacks with complex logic", () => {
-        const action = createAction((builder: any) =>
-          builder
-            .schemas({ inputSchema: testSchemas.string })
-            .handler(testHandlers.identity)
-            .callbacks(mockCallbacks.complex),
-        );
-        expectValidAction(action);
-      });
+  describe("Error definition edge cases", () => {
+    it("should handle empty errors object", () => {
+      const action = actioncraft()
+        .errors({})
+        .handler(testHandlers.errorValidator)
+        .build();
+      expectValidAction(action);
     });
 
-    describe("Error scenarios", () => {
-      it("should throw error if craft() is called without handler on empty builder", () => {
-        expect(() => {
-          createAction((builder: any) => builder);
-        }).toThrow("A handler implementation is required");
-      });
+    it("should handle single error definition", () => {
+      const action = actioncraft()
+        .errors({ singleError: commonErrors.singleError })
+        .handler(testHandlers.singleErrorValidator)
+        .build();
+      expectValidAction(action);
+    });
 
-      it("should throw error if craft() is called after schemas but no handler", () => {
-        expect(() => {
-          createAction((builder: any) =>
-            builder.schemas({ inputSchema: testSchemas.string }),
-          );
-        }).toThrow("A handler implementation is required");
-      });
+    it("should handle error with complex parameters", () => {
+      const action = actioncraft()
+        .errors({ complexError: commonErrors.complexError })
+        .handler(testHandlers.complexErrorValidator)
+        .build();
+      expectValidAction(action);
+    });
+  });
 
-      it("should throw error if craft() is called after errors but no handler", () => {
-        expect(() => {
-          createAction((builder: any) =>
-            builder.errors({ testError: commonErrors.testError }),
-          );
-        }).toThrow("A handler implementation is required");
-      });
+  describe("Callback edge cases", () => {
+    it("should handle partial callback definitions", () => {
+      const onSuccessOnly = actioncraft()
+        .handler(async () => "test")
+        .callbacks({ onSuccess: mockCallbacks.onSuccess })
+        .build();
 
-      it("should throw error if craft() is called after callbacks reset by schemas", () => {
-        expect(() => {
-          createAction((builder: any) =>
-            builder
-              .handler(async () => "test")
-              .callbacks({ onSuccess: mockCallbacks.onSuccess })
-              .schemas({ inputSchema: testSchemas.string }),
-          );
-        }).toThrow("A handler implementation is required");
-      });
+      const onErrorOnly = actioncraft()
+        .handler(async () => "test")
+        .callbacks({ onError: mockCallbacks.onError })
+        .build();
+
+      const onSettledOnly = actioncraft()
+        .handler(async () => "test")
+        .callbacks({ onSettled: mockCallbacks.onSettled })
+        .build();
+
+      expectValidAction(onSuccessOnly);
+      expectValidAction(onErrorOnly);
+      expectValidAction(onSettledOnly);
+    });
+
+    it("should handle async callbacks", () => {
+      const action = actioncraft()
+        .handler(async () => "test")
+        .callbacks(mockCallbacks.async)
+        .build();
+      expectValidAction(action);
+    });
+
+    it("should handle callbacks with complex logic", () => {
+      const action = actioncraft()
+        .schemas({ inputSchema: testSchemas.string })
+        .handler(testHandlers.identity)
+        .callbacks(mockCallbacks.complex)
+        .build();
+      expectValidAction(action);
+    });
+  });
+
+  describe("Error scenarios", () => {
+    it("should throw error if build() is called without handler on empty builder", () => {
+      expect(() => {
+        actioncraft().build();
+      }).toThrow("A handler implementation is required");
+    });
+
+    it("should throw error if build() is called after schemas but no handler", () => {
+      expect(() => {
+        actioncraft().schemas({ inputSchema: testSchemas.string }).build();
+      }).toThrow("A handler implementation is required");
+    });
+
+    it("should throw error if build() is called after errors but no handler", () => {
+      expect(() => {
+        actioncraft().errors({ testError: commonErrors.testError }).build();
+      }).toThrow("A handler implementation is required");
+    });
+
+    it("should throw error if build() is called after callbacks reset by schemas", () => {
+      expect(() => {
+        actioncraft()
+          .handler(async () => "test")
+          .callbacks({ onSuccess: mockCallbacks.onSuccess })
+          .schemas({ inputSchema: testSchemas.string })
+          .build();
+      }).toThrow("A handler implementation is required");
     });
   });
 });
